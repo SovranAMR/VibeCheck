@@ -557,7 +557,13 @@ export default function BreathPage() {
             </div>
             
             <button
-              onClick={startTest}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent document event listeners
+                console.log('Start Test button clicked');
+                startTest();
+              }}
+              onMouseDown={(e) => e.stopPropagation()} // Prevent document mousedown
+              onTouchStart={(e) => e.stopPropagation()} // Prevent document touchstart
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105"
             >
               Teste Başla
@@ -731,14 +737,24 @@ export default function BreathPage() {
             
             <div className="flex justify-center space-x-4">
               <button
-                onClick={handleRestart}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRestart();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
                 className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-300"
               >
                 Tekrar Dene
               </button>
               
               <button
-                onClick={handleComplete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleComplete();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
                 className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105"
               >
                 Sonuçları Gör →

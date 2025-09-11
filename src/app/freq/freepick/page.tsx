@@ -72,55 +72,104 @@ export default function FreepickPage() {
     setListeningStartTime(Date.now());
     
     try {
-      // Create main oscillator and gain
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      // Create stereo meditation setup
+      const pannerL = ctx.createStereoPanner();
+      const pannerR = ctx.createStereoPanner();
+      pannerL.pan.value = -1;
+      pannerR.pan.value = 1;
       
-      // Create tremolo for natural feel
+      // Binaural meditation frequencies
+      const binauralDiff = 6; // Gentler for continuous listening
+      const oscL = ctx.createOscillator();
+      const oscR = ctx.createOscillator();
+      const gainL = ctx.createGain();
+      const gainR = ctx.createGain();
+      
+      // Subtle harmonics for richness
+      const harmonic2L = ctx.createOscillator();
+      const harmonic2R = ctx.createOscillator();
+      const harmonic2GainL = ctx.createGain();
+      const harmonic2GainR = ctx.createGain();
+      
+      // Very gentle modulation for continuous play
       const tremoloOsc = ctx.createOscillator();
       const tremoloGain = ctx.createGain();
-      
-      // Setup tremolo (subtle amplitude modulation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 4.2; // Slightly different rate for continuous play
-      tremoloGain.gain.value = 0.12; // Subtle tremolo depth
+      tremoloOsc.frequency.value = 3.2; // Slower for meditation
+      tremoloGain.gain.value = 0.06; // Very subtle
       
-      // Create vibrato for frequency modulation
       const vibratoOsc = ctx.createOscillator();
-      const vibratoGain = ctx.createGain();
+      const vibratoGainL = ctx.createGain();
+      const vibratoGainR = ctx.createGain();
       vibratoOsc.type = 'sine';
-      vibratoOsc.frequency.value = 5.0; // 5 Hz vibrato
-      vibratoGain.gain.value = currentFreq * 0.002; // Very subtle frequency modulation
+      vibratoOsc.frequency.value = 3.8;
+      vibratoGainL.gain.value = currentFreq * 0.0008; // Ultra subtle
+      vibratoGainR.gain.value = (currentFreq + binauralDiff) * 0.0008;
+      
+      // Setup frequencies
+      oscL.frequency.value = currentFreq;
+      oscR.frequency.value = currentFreq + binauralDiff;
+      harmonic2L.frequency.value = currentFreq * 2;
+      harmonic2R.frequency.value = (currentFreq + binauralDiff) * 2;
+      
+      // Configure oscillators
+      oscL.type = 'sine';
+      oscR.type = 'sine';
+      harmonic2L.type = 'sine';
+      harmonic2R.type = 'sine';
+      
+      // Very quiet harmonics
+      harmonic2GainL.gain.value = 0.03;
+      harmonic2GainR.gain.value = 0.03;
       
       // Connect audio graph
-      osc.connect(gain);
-      gain.connect(master);
+      oscL.connect(gainL);
+      oscR.connect(gainR);
+      harmonic2L.connect(harmonic2GainL);
+      harmonic2R.connect(harmonic2GainR);
+      
+      gainL.connect(pannerL);
+      gainR.connect(pannerR);
+      harmonic2GainL.connect(pannerL);
+      harmonic2GainR.connect(pannerR);
+      
+      pannerL.connect(master);
+      pannerR.connect(master);
       
       // Connect modulation
       tremoloOsc.connect(tremoloGain);
-      tremoloGain.connect(gain.gain);
+      tremoloGain.connect(gainL.gain);
+      tremoloGain.connect(gainR.gain);
       
-      vibratoOsc.connect(vibratoGain);
-      vibratoGain.connect(osc.frequency);
+      vibratoOsc.connect(vibratoGainL);
+      vibratoOsc.connect(vibratoGainR);
+      vibratoGainL.connect(oscL.frequency);
+      vibratoGainR.connect(oscR.frequency);
       
-      osc.type = 'sine';
-      osc.frequency.value = currentFreq;
-      
-      // Smooth fade in
-      gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.1); // Slower, smoother fade
+      // Very smooth meditation fade in
+      gainL.gain.value = 0;
+      gainR.gain.value = 0;
+      gainL.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15); // Lower volume, slower fade
+      gainR.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15);
       
       // Start all oscillators
-      osc.start();
+      oscL.start();
+      oscR.start();
+      harmonic2L.start();
+      harmonic2R.start();
       tremoloOsc.start();
       vibratoOsc.start();
       
-      oscRef.current = osc;
-      gainRef.current = gain;
+      oscRef.current = oscL; // Store main osc
+      gainRef.current = gainL; // Store main gain
       
-      // Store modulation oscillators for cleanup
-      (osc as any).tremoloOsc = tremoloOsc;
-      (osc as any).vibratoOsc = vibratoOsc;
+      // Store all for cleanup
+      (oscL as any).oscR = oscR;
+      (oscL as any).harmonic2L = harmonic2L;
+      (oscL as any).harmonic2R = harmonic2R;
+      (oscL as any).tremoloOsc = tremoloOsc;
+      (oscL as any).vibratoOsc = vibratoOsc;
+      (oscL as any).gainR = gainR;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -130,15 +179,23 @@ export default function FreepickPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      // Smooth fade out
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+      // Very smooth meditation fade out
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      const gainR = (oscRef.current as any).gainR;
+      if (gainR) gainR.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
       
       setTimeout(() => {
         if (oscRef.current) {
-          // Stop modulation oscillators if they exist
+          // Stop all meditation oscillators
+          const oscR = (oscRef.current as any).oscR;
+          const harmonic2L = (oscRef.current as any).harmonic2L;
+          const harmonic2R = (oscRef.current as any).harmonic2R;
           const tremoloOsc = (oscRef.current as any).tremoloOsc;
           const vibratoOsc = (oscRef.current as any).vibratoOsc;
           
+          if (oscR) oscR.stop();
+          if (harmonic2L) harmonic2L.stop();
+          if (harmonic2R) harmonic2R.stop();
           if (tremoloOsc) tremoloOsc.stop();
           if (vibratoOsc) vibratoOsc.stop();
           
@@ -146,7 +203,7 @@ export default function FreepickPage() {
           oscRef.current = null;
           gainRef.current = null;
         }
-      }, 120); // Longer timeout for smoother fade
+      }, 220); // Longer for meditation fade
     }
     
     setIsPlaying(false);
