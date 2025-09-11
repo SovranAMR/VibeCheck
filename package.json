@@ -1,27 +1,62 @@
 {
-  "name": "yeni-proje",
-  "version": "0.1.0",
+  "name": "frekans-aura-testi",
+  "version": "1.0.0",
+  "description": "Ses titreşimleriyle kişisel rezonans imzanı keşfet",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "analyze": "cross-env ANALYZE=true next build",
+    "export": "next build && next export"
   },
   "dependencies": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "@emailjs/browser": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "html-to-image": "^1.11.13",
+    "lamejs": "^1.2.1",
+    "next": "15.5.2",
+    "openai": "^5.19.1",
+    "pdf-lib": "^1.17.1",
+    "posthog-js": "^1.176.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "recharts": "^2.14.1",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
-    "eslint": "^9",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
     "eslint-config-next": "15.5.2",
-    "@eslint/eslintrc": "^3"
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "frequency",
+    "aura",
+    "audio",
+    "test",
+    "resonance",
+    "vibration",
+    "nextjs",
+    "typescript",
+    "webaudio"
+  ],
+  "author": "Frekans Aura Testi",
+  "license": "MIT",
+  "homepage": "https://frekansaura.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/frekans-aura-testi.git"
   }
 }
