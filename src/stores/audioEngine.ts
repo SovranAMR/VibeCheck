@@ -23,7 +23,16 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
   // Initialize audio context and master gain
   init: async () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Check if we're in browser environment
+      if (typeof window === 'undefined') return;
+      
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) {
+        console.warn('AudioContext not supported');
+        return;
+      }
+      
+      const ctx = new AudioContextClass();
       const master = ctx.createGain();
       master.connect(ctx.destination);
       master.gain.value = 0.5; // Higher volume for mobile
@@ -32,23 +41,27 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
       
       // Auto-unlock on first user interaction for iOS
       const unlockAudio = async () => {
-        if (ctx.state === 'suspended') {
-          await ctx.resume();
+        try {
+          if (ctx.state === 'suspended') {
+            await ctx.resume();
+          }
+          
+          // Play silent buffer to unlock iOS audio
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+          
+          set({ isUnlocked: true });
+          
+          // Remove listeners after unlock
+          document.removeEventListener('touchstart', unlockAudio);
+          document.removeEventListener('touchend', unlockAudio);
+          document.removeEventListener('click', unlockAudio);
+        } catch (error) {
+          console.error('Audio unlock failed:', error);
         }
-        
-        // Play silent buffer to unlock iOS audio
-        const buffer = ctx.createBuffer(1, 1, 22050);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start(0);
-        
-        set({ isUnlocked: true });
-        
-        // Remove listeners after unlock
-        document.removeEventListener('touchstart', unlockAudio);
-        document.removeEventListener('touchend', unlockAudio);
-        document.removeEventListener('click', unlockAudio);
       };
       
       // Listen for first user interaction

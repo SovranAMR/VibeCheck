@@ -9,49 +9,38 @@ export default function IOSAudioUnlock() {
   const { init, unlock, isUnlocked, ctx } = useAudioEngine();
 
   useEffect(() => {
-    // Detect iOS
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    setIsIOS(iOS);
+    // Detect iOS safely
+    if (typeof window !== 'undefined') {
+      const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      setIsIOS(iOS);
 
-    // Initialize audio engine
-    init();
-
-    // Show unlock prompt on iOS if audio context is suspended
-    if (iOS) {
-      const checkAudioState = () => {
-        if (ctx && ctx.state === 'suspended' && !isUnlocked) {
-          setShowUnlock(true);
-        }
-      };
-      
-      setTimeout(checkAudioState, 1000);
+      // Initialize audio engine only once
+      if (iOS) {
+        init();
+        
+        // Show unlock prompt on iOS if audio context is suspended
+        const checkAudioState = () => {
+          if (ctx && ctx.state === 'suspended' && !isUnlocked) {
+            setShowUnlock(true);
+          }
+        };
+        
+        const timer = setTimeout(checkAudioState, 1000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [init, ctx, isUnlocked]);
+  }, []); // Empty dependency array to run only once
 
   const handleUnlock = async () => {
     try {
       await unlock();
-      // Play test tone to verify unlock
-      const testCtx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (testCtx.state === 'suspended') {
-        await testCtx.resume();
-      }
-      
-      // Play silent test tone
-      const osc = testCtx.createOscillator();
-      const gain = testCtx.createGain();
-      osc.connect(gain);
-      gain.connect(testCtx.destination);
-      gain.gain.value = 0.1;
-      osc.frequency.value = 440;
-      osc.start();
-      osc.stop(testCtx.currentTime + 0.1);
-      
       setShowUnlock(false);
       console.log('iOS Audio unlocked successfully');
     } catch (error) {
       console.error('iOS Audio unlock failed:', error);
+      // Still hide the popup even if unlock fails
+      setShowUnlock(false);
     }
   };
 
