@@ -485,25 +485,47 @@ export default function BreathPage() {
   }, [handleRelease]);
 
   useEffect(() => {
-    const handleMouseDown = () => {
-      console.log('Mouse down event triggered');
+    const handleMouseDown = (e: MouseEvent) => {
+      // Ignore clicks on buttons and interactive elements
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON' || target.closest('button')) {
+        console.log('Mouse down ignored - clicked on button');
+        return;
+      }
+      console.log('Mouse down event triggered for breathing area');
       handlePressRef.current();
     };
     
-    const handleMouseUp = () => {
-      console.log('Mouse up event triggered');
+    const handleMouseUp = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON' || target.closest('button')) {
+        console.log('Mouse up ignored - clicked on button');
+        return;
+      }
+      console.log('Mouse up event triggered for breathing area');
       handleReleaseRef.current();
     };
     
     const handleTouchStart = (e: TouchEvent) => {
+      // Ignore touches on buttons and interactive elements
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON' || target.closest('button')) {
+        console.log('Touch start ignored - touched button');
+        return;
+      }
       e.preventDefault();
-      console.log('Touch start event triggered');
+      console.log('Touch start event triggered for breathing area');
       handlePressRef.current();
     };
     
     const handleTouchEnd = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON' || target.closest('button')) {
+        console.log('Touch end ignored - touched button');
+        return;
+      }
       e.preventDefault();
-      console.log('Touch end event triggered');
+      console.log('Touch end event triggered for breathing area');
       handleReleaseRef.current();
     };
 
