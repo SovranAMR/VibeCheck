@@ -53,7 +53,9 @@ export default function BreathPage() {
   }, [setCurrentStep]);
 
   const startTest = () => {
-    console.log('startTest called - initializing breath test');
+    console.log('🚀 startTest BAŞLADI - initializing breath test');
+    
+    console.log('🔄 Setting states...');
     setShowInstructions(false);
     setCurrentCycle(0);
     setBreathCycles([]);
@@ -67,17 +69,18 @@ export default function BreathPage() {
     setResults(null);
     setCircleScale(1);
     
+    console.log('🧹 Clearing animations...');
     // Clear any running animations
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
     
-    console.log('Breath test initialized - user can now start breathing');
+    console.log('✅ Breath test initialized - user can now start breathing');
     
     // Otomatik olarak ilk inhale'i başlat (daha iyi UX için)
     setTimeout(() => {
-      console.log('Auto-starting first inhale phase');
+      console.log('⏰ Auto-starting first inhale phase');
       startInhalePhase();
     }, 1000); // 1 saniye bekle ki kullanıcı hazırlanabilsin
   };
@@ -485,6 +488,14 @@ export default function BreathPage() {
   }, [handleRelease]);
 
   useEffect(() => {
+    // Only add document event listeners when test is active (not showing instructions)
+    if (showInstructions || isComplete) {
+      console.log('Document event listeners disabled - showing instructions or completed');
+      return;
+    }
+
+    console.log('Adding document event listeners for breathing test');
+    
     const handleMouseDown = (e: MouseEvent) => {
       // Ignore clicks on buttons and interactive elements
       const target = e.target as HTMLElement;
@@ -535,12 +546,13 @@ export default function BreathPage() {
     document.addEventListener('touchend', handleTouchEnd);
 
     return () => {
+      console.log('Removing document event listeners');
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []); // Empty dependency - set once
+  }, [showInstructions, isComplete]); // Depend on test state
 
   // Cleanup animation on unmount
   useEffect(() => {
@@ -580,12 +592,30 @@ export default function BreathPage() {
             
             <button
               onClick={(e) => {
-                e.stopPropagation(); // Prevent document event listeners
-                console.log('Start Test button clicked');
+                console.log('🔥 TESTE BAŞLA BUTTON CLICKED!', {
+                  showInstructions,
+                  isComplete,
+                  phase,
+                  currentCycle
+                });
+                e.preventDefault();
+                e.stopPropagation();
                 startTest();
+                console.log('✅ startTest() called successfully');
               }}
-              onMouseDown={(e) => e.stopPropagation()} // Prevent document mousedown
-              onTouchStart={(e) => e.stopPropagation()} // Prevent document touchstart
+              onMouseDown={(e) => {
+                console.log('👆 Button mouse down');
+                e.stopPropagation();
+              }}
+              onTouchStart={(e) => {
+                console.log('📱 Button touch start');
+                e.stopPropagation();
+              }}
+              style={{ 
+                position: 'relative',
+                zIndex: 999,
+                pointerEvents: 'auto'
+              }}
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105"
             >
               Teste Başla
