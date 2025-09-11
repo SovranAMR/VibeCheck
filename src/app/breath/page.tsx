@@ -53,18 +53,33 @@ export default function BreathPage() {
   }, [setCurrentStep]);
 
   const startTest = () => {
-    console.log('startTest called');
+    console.log('startTest called - initializing breath test');
     setShowInstructions(false);
     setCurrentCycle(0);
     setBreathCycles([]);
     setPhase('waiting');
     setStage('natural');
     setDeepInhales([]);
+    setDeepExhales([]);
     setDeepInhaleAvgMs(null);
     setDeepExhaleAvgMs(null);
+    setIsComplete(false);
+    setResults(null);
+    setCircleScale(1);
     
-    // Kullanıcı kendi ritmiyle başlar: ilk basış inhale'i başlatır
-    console.log('startTest completed - showInstructions now false');
+    // Clear any running animations
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    console.log('Breath test initialized - user can now start breathing');
+    
+    // Otomatik olarak ilk inhale'i başlat (daha iyi UX için)
+    setTimeout(() => {
+      console.log('Auto-starting first inhale phase');
+      startInhalePhase();
+    }, 1000); // 1 saniye bekle ki kullanıcı hazırlanabilsin
   };
 
   const startInhalePhase = () => {
@@ -823,7 +838,12 @@ export default function BreathPage() {
                       <div className="text-red-400">💨 Nefes verirken bırak</div>
                     )}
                     {phase === 'waiting' && (
-                      <div className="text-slate-400">Kendi ritmin ile devam et</div>
+                      <div className="text-yellow-400">
+                        {currentCycle === 0 ? 
+                          "🫁 İlk nefesini al, başlarken butona bas" : 
+                          "Bir sonraki nefesini almaya hazır ol"
+                        }
+                      </div>
                     )}
                   </>
                 ) : (
