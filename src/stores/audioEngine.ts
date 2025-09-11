@@ -114,6 +114,8 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
   makeTone: async (fHz: number, durationSec: number, shape: OscillatorType = 'sine', easing: boolean = true) => {
     const { ctx, master, isUnlocked } = get();
     
+    console.log('makeTone called:', { fHz, durationSec, shape, hasCtx: !!ctx, hasMaster: !!master, isUnlocked });
+    
     if (!ctx || !master) {
       console.warn('Audio context not initialized');
       return;
@@ -123,9 +125,10 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
     if (ctx.state === 'suspended') {
       try {
         await ctx.resume();
-        console.log('Audio context resumed');
+        console.log('Audio context resumed for makeTone');
       } catch (error) {
         console.error('Failed to resume audio context:', error);
+        return;
       }
     }
     
@@ -138,13 +141,14 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
         source.connect(ctx.destination);
         source.start(0);
         set({ isUnlocked: true });
-        console.log('Audio unlocked automatically');
+        console.log('Audio unlocked automatically in makeTone');
       } catch (error) {
         console.error('Auto-unlock failed:', error);
+        return;
       }
     }
 
-    return new Promise<void>((resolve) => {
+    try {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
@@ -157,15 +161,20 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
       osc.frequency.value = fHz;
       
       const now = ctx.currentTime;
-      const fadeTime = easing ? 0.02 : 0; // Longer fade for mobile
+      const fadeTime = easing ? 0.02 : 0;
+      
+      // Set initial volume
+      gain.gain.setValueAtTime(0, now);
       
       // Fade in
-      gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.8, now + fadeTime); // Higher volume
-      
-      // Fade out
-      gain.gain.linearRampToValueAtTime(0.8, now + durationSec - fadeTime);
-      gain.gain.linearRampToValueAtTime(0, now + durationSec);
+      if (fadeTime > 0) {
+        gain.gain.linearRampToValueAtTime(0.7, now + fadeTime);
+        gain.gain.linearRampToValueAtTime(0.7, now + durationSec - fadeTime);
+        gain.gain.linearRampToValueAtTime(0, now + durationSec);
+      } else {
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.setValueAtTime(0, now + durationSec);
+      }
       
       // Start and schedule stop
       osc.start(now);
@@ -174,12 +183,21 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
       // Update state
       set({ isPlaying: true, currentFrequency: fHz });
       
+      console.log('Tone started successfully:', fHz, 'Hz for', durationSec, 'seconds');
+      
       // Clean up when finished
-      osc.onended = () => {
-        set({ isPlaying: false, currentFrequency: null });
-        resolve();
-      };
-    });
+      return new Promise<void>((resolve) => {
+        osc.onended = () => {
+          set({ isPlaying: false, currentFrequency: null });
+          console.log('Tone ended:', fHz, 'Hz');
+          resolve();
+        };
+      });
+      
+    } catch (error) {
+      console.error('Error in makeTone:', error);
+      set({ isPlaying: false, currentFrequency: null });
+    }
   },
 
   // Play tone with state management

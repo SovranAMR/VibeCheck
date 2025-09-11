@@ -41,9 +41,19 @@ export default function CalibrationPage() {
   const handlePlayCalibrationTone = async () => {
     if (isPlaying) return;
     
+    console.log('Calibration tone button clicked');
     setIsPlaying(true);
+    
     try {
+      // iOS specific: Force context resume
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('Audio context resumed for calibration');
+      }
+      
+      console.log('Playing calibration tone: 1000Hz, 3 seconds');
       await playTone(1000, 3); // 1kHz, 3 saniye
+      console.log('Calibration tone completed');
     } catch (error) {
       console.error('Calibration tone failed:', error);
     } finally {
@@ -56,7 +66,15 @@ export default function CalibrationPage() {
     setIsPlaying(true);
     
     try {
+      // iOS specific: Force context resume
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('Audio context resumed for experience');
+      }
+      
+      console.log('Playing experience tone: 432Hz, 5 seconds');
       await playTone(432, 5); // 432Hz, 5 saniye
+      console.log('Experience tone completed');
     } catch (error) {
       console.error('Experience tone failed:', error);
     } finally {

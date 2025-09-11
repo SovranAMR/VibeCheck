@@ -41,11 +41,20 @@ export default function PrefeelPage() {
   const handlePlayFrequency = async () => {
     if (isPlaying) return;
     
+    console.log('Prefeel tone button clicked');
     setIsPlaying(true);
     setHasPlayedCurrent(true);
     
     try {
+      // iOS specific: Force context resume
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('Audio context resumed for prefeel');
+      }
+      
+      console.log('Playing prefeel tone:', currentFreq, 'Hz, 5 seconds');
       await playTone(currentFreq, 5); // 5 saniye
+      console.log('Prefeel tone completed');
     } catch (error) {
       console.error('Prefeel tone failed:', error);
     } finally {
