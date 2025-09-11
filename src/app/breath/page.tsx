@@ -564,8 +564,14 @@ export default function BreathPage() {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4 overflow-auto" style={{zIndex: 0}}>
-      <div className="max-w-2xl w-full text-center space-y-6">
+    <div 
+      className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4 overflow-auto no-select" 
+      style={{
+        zIndex: 0,
+        touchAction: 'manipulation'
+      }}
+    >
+      <div className="max-w-2xl w-full text-center space-y-6 no-select">
         {/* Header */}
         <div className="space-y-3">
           <h1 className="text-3xl md:text-4xl font-light text-white">
@@ -859,7 +865,12 @@ export default function BreathPage() {
 
             {/* Breathing Circle */}
             <div className="flex flex-col items-center space-y-6">
-              <div className="relative w-80 h-80 flex items-center justify-center">
+              <div 
+                className="relative w-80 h-80 flex items-center justify-center breathing-area"
+                style={{
+                  cursor: phase !== 'waiting' ? 'pointer' : 'default'
+                }}
+              >
                 {/* Animated Circle */}
                 <div
                   className={`
@@ -876,7 +887,12 @@ export default function BreathPage() {
                 />
                 
                 {/* Center Text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div 
+                  className="absolute inset-0 flex flex-col items-center justify-center text-white no-select"
+                  style={{
+                    pointerEvents: 'none' // Text'ler click'i engellemez
+                  }}
+                >
                   {phase === 'waiting' && (
                     <div className="text-lg">Hazırlan...</div>
                   )}
