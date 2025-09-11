@@ -88,24 +88,55 @@ export default function CalibrationPage() {
     setIsContinuousPlaying(true);
     
     try {
-      // Create oscillator and gain nodes
+      // Create main oscillator and gain
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
+      // Create tremolo for natural feel
+      const tremoloOsc = ctx.createOscillator();
+      const tremoloGain = ctx.createGain();
+      
+      // Setup tremolo
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 4.0; // 4 Hz tremolo for 432Hz
+      tremoloGain.gain.value = 0.1; // Gentle tremolo for calibration
+      
+      // Create vibrato
+      const vibratoOsc = ctx.createOscillator();
+      const vibratoGain = ctx.createGain();
+      vibratoOsc.type = 'sine';
+      vibratoOsc.frequency.value = 5.5; // 5.5 Hz vibrato
+      vibratoGain.gain.value = 432 * 0.0015; // Very subtle for 432Hz
+      
+      // Connect audio graph
       osc.connect(gain);
       gain.connect(master);
+      
+      // Connect modulation
+      tremoloOsc.connect(tremoloGain);
+      tremoloGain.connect(gain.gain);
+      
+      vibratoOsc.connect(vibratoGain);
+      vibratoGain.connect(osc.frequency);
       
       osc.type = 'sine';
       osc.frequency.value = 432;
       
-      // Fade in
+      // Smooth fade in
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05);
+      gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.1);
       
+      // Start all oscillators
       osc.start();
+      tremoloOsc.start();
+      vibratoOsc.start();
       
       oscRef.current = osc;
       gainRef.current = gain;
+      
+      // Store for cleanup
+      (osc as any).tremoloOsc = tremoloOsc;
+      (osc as any).vibratoOsc = vibratoOsc;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -115,16 +146,23 @@ export default function CalibrationPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      // Fade out
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
+      // Smooth fade out
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
       
       setTimeout(() => {
         if (oscRef.current) {
+          // Stop modulation oscillators
+          const tremoloOsc = (oscRef.current as any).tremoloOsc;
+          const vibratoOsc = (oscRef.current as any).vibratoOsc;
+          
+          if (tremoloOsc) tremoloOsc.stop();
+          if (vibratoOsc) vibratoOsc.stop();
+          
           oscRef.current.stop();
           oscRef.current = null;
           gainRef.current = null;
         }
-      }, 60);
+      }, 120);
     }
     
     setIsContinuousPlaying(false);

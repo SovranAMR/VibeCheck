@@ -72,24 +72,55 @@ export default function FreepickPage() {
     setListeningStartTime(Date.now());
     
     try {
-      // Create oscillator and gain nodes
+      // Create main oscillator and gain
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
+      // Create tremolo for natural feel
+      const tremoloOsc = ctx.createOscillator();
+      const tremoloGain = ctx.createGain();
+      
+      // Setup tremolo (subtle amplitude modulation)
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 4.2; // Slightly different rate for continuous play
+      tremoloGain.gain.value = 0.12; // Subtle tremolo depth
+      
+      // Create vibrato for frequency modulation
+      const vibratoOsc = ctx.createOscillator();
+      const vibratoGain = ctx.createGain();
+      vibratoOsc.type = 'sine';
+      vibratoOsc.frequency.value = 5.0; // 5 Hz vibrato
+      vibratoGain.gain.value = currentFreq * 0.002; // Very subtle frequency modulation
+      
+      // Connect audio graph
       osc.connect(gain);
       gain.connect(master);
+      
+      // Connect modulation
+      tremoloOsc.connect(tremoloGain);
+      tremoloGain.connect(gain.gain);
+      
+      vibratoOsc.connect(vibratoGain);
+      vibratoGain.connect(osc.frequency);
       
       osc.type = 'sine';
       osc.frequency.value = currentFreq;
       
-      // Fade in
+      // Smooth fade in
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05);
+      gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.1); // Slower, smoother fade
       
+      // Start all oscillators
       osc.start();
+      tremoloOsc.start();
+      vibratoOsc.start();
       
       oscRef.current = osc;
       gainRef.current = gain;
+      
+      // Store modulation oscillators for cleanup
+      (osc as any).tremoloOsc = tremoloOsc;
+      (osc as any).vibratoOsc = vibratoOsc;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -99,16 +130,23 @@ export default function FreepickPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      // Fade out
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
+      // Smooth fade out
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
       
       setTimeout(() => {
         if (oscRef.current) {
+          // Stop modulation oscillators if they exist
+          const tremoloOsc = (oscRef.current as any).tremoloOsc;
+          const vibratoOsc = (oscRef.current as any).vibratoOsc;
+          
+          if (tremoloOsc) tremoloOsc.stop();
+          if (vibratoOsc) vibratoOsc.stop();
+          
           oscRef.current.stop();
           oscRef.current = null;
           gainRef.current = null;
         }
-      }, 60);
+      }, 120); // Longer timeout for smoother fade
     }
     
     setIsPlaying(false);

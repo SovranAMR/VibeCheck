@@ -149,36 +149,66 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
     }
 
     try {
+      // Create main oscillator and gain
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      // Setup audio graph
+      // Create tremolo (amplitude modulation) for natural feel
+      const tremoloOsc = ctx.createOscillator();
+      const tremoloGain = ctx.createGain();
+      
+      // Setup tremolo (subtle amplitude modulation)
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 4.5; // 4.5 Hz tremolo (natural vibrato rate)
+      tremoloGain.gain.value = 0.15; // Subtle tremolo depth (15%)
+      
+      // Connect tremolo
+      tremoloOsc.connect(tremoloGain);
+      tremoloGain.connect(gain.gain); // Modulate the main gain
+      
+      // Setup main audio graph
       osc.connect(gain);
       gain.connect(master);
       
-      // Configure oscillator
-      osc.type = shape;
+      // Configure main oscillator - use sine for more natural sound
+      osc.type = 'sine'; // Always sine for natural feel
       osc.frequency.value = fHz;
       
+      // Add subtle frequency modulation (vibrato) for even more natural feel
+      const vibratoOsc = ctx.createOscillator();
+      const vibratoGain = ctx.createGain();
+      vibratoOsc.type = 'sine';
+      vibratoOsc.frequency.value = 5.2; // 5.2 Hz vibrato
+      vibratoGain.gain.value = fHz * 0.003; // Very subtle frequency modulation (0.3%)
+      
+      vibratoOsc.connect(vibratoGain);
+      vibratoGain.connect(osc.frequency); // Modulate main frequency
+      
       const now = ctx.currentTime;
-      const fadeTime = easing ? 0.02 : 0;
+      const fadeTime = easing ? 0.05 : 0; // Longer, smoother fade
       
       // Set initial volume
       gain.gain.setValueAtTime(0, now);
       
-      // Fade in
+      // Smooth fade in/out with exponential curves for more natural feel
       if (fadeTime > 0) {
-        gain.gain.linearRampToValueAtTime(0.7, now + fadeTime);
-        gain.gain.linearRampToValueAtTime(0.7, now + durationSec - fadeTime);
-        gain.gain.linearRampToValueAtTime(0, now + durationSec);
+        gain.gain.linearRampToValueAtTime(0.6, now + fadeTime); // Slightly lower volume
+        gain.gain.linearRampToValueAtTime(0.6, now + durationSec - fadeTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec); // Smooth exponential fade out
       } else {
-        gain.gain.setValueAtTime(0.7, now);
-        gain.gain.setValueAtTime(0, now + durationSec);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
       }
       
-      // Start and schedule stop
+      // Start all oscillators
       osc.start(now);
+      tremoloOsc.start(now);
+      vibratoOsc.start(now);
+      
+      // Schedule stops
       osc.stop(now + durationSec);
+      tremoloOsc.stop(now + durationSec);
+      vibratoOsc.stop(now + durationSec);
       
       // Update state
       set({ isPlaying: true, currentFrequency: fHz });
