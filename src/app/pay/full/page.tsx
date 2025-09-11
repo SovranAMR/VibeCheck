@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import OpenAI from 'openai';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/stores/sessionStore';
 import { AURA_DESCRIPTIONS } from '@/lib/scoring';
@@ -38,25 +37,25 @@ export default function PayFullPage() {
     try {
       localStorage.setItem('full-access', 'true');
 
-      // 1) Generate AI Sigil via OpenAI Images
-      console.log('API Key:', process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 'Found' : 'Missing');
-      
-      const client = new OpenAI({ 
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true 
-      });
-      
+      // 1) Generate AI Sigil via secure API route
       const prompt = `${session.aura?.type} theme minimalist symbol, smooth gradients, centered icon, modern, no text, flat icon, soft glow`;
       console.log('Generating sigil with prompt:', prompt);
       
-      const img = await client.images.generate({ 
-        model: 'dall-e-3', 
-        prompt, 
-        size: '1024x1024',
-        response_format: 'url'
+      const img = await fetch('/api/generate-sigil', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
       });
       
-      const imageUrl = img.data?.[0]?.url || '';
+      if (!img.ok) {
+        throw new Error('Failed to generate sigil');
+      }
+      
+      const imgData = await img.json();
+      
+      const imageUrl = imgData.data?.[0]?.url || '';
       console.log('Generated sigil URL:', imageUrl);
       
       setSigilUrl(imageUrl);
@@ -83,14 +82,21 @@ RAPOR YAPISI:
 
 YAZIM STILI: Profesyonel, bilimsel ama anlaşılır, kişiselleştirilmiş, yapıcı ve motive edici. Türkçe yaz.`;
 
-      const reportResponse = await client.chat.completions.create({
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: pdfPrompt }],
-        max_tokens: 2000,
-        temperature: 0.7
+      const reportResponse = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: pdfPrompt }),
       });
+      
+      if (!reportResponse.ok) {
+        throw new Error('Failed to generate report');
+      }
+      
+      const reportData = await reportResponse.json();
 
-      const aiReportText = reportResponse.choices[0]?.message?.content || 'Rapor olusturulamadi.';
+      const aiReportText = reportData.choices[0]?.message?.content || 'Rapor olusturulamadi.';
       console.log('AI Report generated:', aiReportText.substring(0, 100) + '...');
       
       // Convert Turkish characters to ASCII for PDF compatibility

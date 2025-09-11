@@ -4,8 +4,6 @@ const nextConfig: NextConfig = {
   // Production optimizations
   poweredByHeader: false,
   compress: true,
-  output: 'export',
-  trailingSlash: true,
   eslint: {
     ignoreDuringBuilds: true, // Geçici olarak ESLint'i devre dışı bırak
   },
