@@ -26,9 +26,36 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const master = ctx.createGain();
       master.connect(ctx.destination);
-      master.gain.value = 0.3; // Default volume
+      master.gain.value = 0.5; // Higher volume for mobile
       
       set({ ctx, master });
+      
+      // Auto-unlock on first user interaction for iOS
+      const unlockAudio = async () => {
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+        
+        // Play silent buffer to unlock iOS audio
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        
+        set({ isUnlocked: true });
+        
+        // Remove listeners after unlock
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('touchend', unlockAudio);
+        document.removeEventListener('click', unlockAudio);
+      };
+      
+      // Listen for first user interaction
+      document.addEventListener('touchstart', unlockAudio, { once: true });
+      document.addEventListener('touchend', unlockAudio, { once: true });
+      document.addEventListener('click', unlockAudio, { once: true });
+      
     } catch (error) {
       console.error('Audio context initialization failed:', error);
     }
@@ -74,9 +101,34 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
   makeTone: async (fHz: number, durationSec: number, shape: OscillatorType = 'sine', easing: boolean = true) => {
     const { ctx, master, isUnlocked } = get();
     
-    if (!ctx || !master || !isUnlocked) {
-      console.warn('Audio engine not ready');
+    if (!ctx || !master) {
+      console.warn('Audio context not initialized');
       return;
+    }
+    
+    // Force resume context if suspended (iOS fix)
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+        console.log('Audio context resumed');
+      } catch (error) {
+        console.error('Failed to resume audio context:', error);
+      }
+    }
+    
+    // Auto-unlock if not unlocked yet
+    if (!isUnlocked) {
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        set({ isUnlocked: true });
+        console.log('Audio unlocked automatically');
+      } catch (error) {
+        console.error('Auto-unlock failed:', error);
+      }
     }
 
     return new Promise<void>((resolve) => {
@@ -92,14 +144,14 @@ export const useAudioEngine = create<AudioEngineStore>((set, get) => ({
       osc.frequency.value = fHz;
       
       const now = ctx.currentTime;
-      const fadeTime = easing ? 0.01 : 0; // 10ms fade to prevent clicks
+      const fadeTime = easing ? 0.02 : 0; // Longer fade for mobile
       
       // Fade in
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.7, now + fadeTime);
+      gain.gain.linearRampToValueAtTime(0.8, now + fadeTime); // Higher volume
       
       // Fade out
-      gain.gain.linearRampToValueAtTime(0.7, now + durationSec - fadeTime);
+      gain.gain.linearRampToValueAtTime(0.8, now + durationSec - fadeTime);
       gain.gain.linearRampToValueAtTime(0, now + durationSec);
       
       // Start and schedule stop

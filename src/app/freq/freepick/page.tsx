@@ -58,6 +58,16 @@ export default function FreepickPage() {
   const startContinuousPlay = async () => {
     if (!ctx || !master || isPlaying) return;
     
+    // iOS specific: Force context resume
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+        console.log('Audio context resumed for iOS');
+      } catch (error) {
+        console.error('Failed to resume audio context:', error);
+      }
+    }
+    
     setIsPlaying(true);
     setListeningStartTime(Date.now());
     

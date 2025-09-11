@@ -48,6 +48,12 @@ export default function FreqMainPage() {
     setHasPlayedCurrent(true);
     
     try {
+      // iOS specific: Force context resume
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('Audio context resumed for iOS');
+      }
+      
       // 8-10 saniye oynat
       await playTone(currentFreq, 9);
     } catch (error) {
