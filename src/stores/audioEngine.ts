@@ -194,6 +194,15 @@ export const useAudioEngine = create<AudioEngineStore>()(
           const chorusOsc = ctx.createOscillator();
           const chorusGain = ctx.createGain();
           
+          // Create reverb-like delay for meditation depth
+          const delay = ctx.createDelay();
+          const delayGain = ctx.createGain();
+          const feedbackGain = ctx.createGain();
+          
+          // Create additional subtle harmonic for richness
+          const harmonic4 = ctx.createOscillator(); // Perfect fourth
+          const harmonic4Gain = ctx.createGain();
+          
           // Setup main oscillator
           osc.type = 'sine';
           osc.frequency.value = fHz;
@@ -208,6 +217,16 @@ export const useAudioEngine = create<AudioEngineStore>()(
           harmonic3.type = 'sine';
           harmonic3.frequency.value = fHz * 1.5; // Perfect fifth
           harmonic3Gain.gain.value = 0.008 * freqFactor; // Much softer for high frequencies
+          
+          // Setup additional harmonic (perfect fourth)
+          harmonic4.type = 'sine';
+          harmonic4.frequency.value = fHz * 1.33; // Perfect fourth
+          harmonic4Gain.gain.value = 0.005 * freqFactor; // Very subtle for meditation
+          
+          // Setup delay for reverb-like meditation depth
+          delay.delayTime.value = 0.3; // 300ms delay for meditation depth
+          delayGain.gain.value = 0.15; // Subtle reverb effect
+          feedbackGain.gain.value = 0.2; // Gentle feedback for depth
           
           // Setup tremolo (very slow, calm breathing-like modulation)
           tremoloOsc.type = 'sine';
@@ -224,13 +243,22 @@ export const useAudioEngine = create<AudioEngineStore>()(
           chorusOsc.frequency.value = 0.3; // Very slow for smoothness
           chorusGain.gain.value = fHz * 0.00005; // Ultra subtle, especially for high frequencies
           
-          // Connect audio graph with filter for smoothness
+          // Connect audio graph with filter and delay for meditation depth
           osc.connect(gain);
           harmonic2.connect(harmonic2Gain);
           harmonic3.connect(harmonic3Gain);
+          harmonic4.connect(harmonic4Gain);
           harmonic2Gain.connect(gain);
           harmonic3Gain.connect(gain);
-          gain.connect(filter); // Apply filter for smoothness
+          harmonic4Gain.connect(gain);
+          
+          // Connect delay for reverb-like meditation depth
+          gain.connect(delay);
+          delay.connect(delayGain);
+          delayGain.connect(filter);
+          delayGain.connect(feedbackGain);
+          feedbackGain.connect(delay); // Feedback loop for reverb effect
+          
           filter.connect(master);
           
           // Connect modulation
@@ -264,6 +292,7 @@ export const useAudioEngine = create<AudioEngineStore>()(
           osc.start(now);
           harmonic2.start(now);
           harmonic3.start(now);
+          harmonic4.start(now);
           tremoloOsc.start(now);
           vibratoOsc.start(now);
           chorusOsc.start(now);
@@ -272,6 +301,7 @@ export const useAudioEngine = create<AudioEngineStore>()(
           osc.stop(now + durationSec);
           harmonic2.stop(now + durationSec);
           harmonic3.stop(now + durationSec);
+          harmonic4.stop(now + durationSec);
           tremoloOsc.stop(now + durationSec);
           vibratoOsc.stop(now + durationSec);
           chorusOsc.stop(now + durationSec);

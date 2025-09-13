@@ -89,29 +89,62 @@ export default function CalibrationPage() {
     setIsContinuousPlaying(true);
     
     try {
-      // Create main oscillator and gain
+      // Create main oscillator with smooth, breathable sound
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      // Create tremolo for natural feel
+      // Create low-pass filter for smoothness
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 8000; // Smooth cutoff for 432Hz
+      filter.Q.value = 0.5; // Gentle rolloff
+      
+      // Create subtle harmonic for warmth
+      const harmonic = ctx.createOscillator();
+      const harmonicGain = ctx.createGain();
+      
+      // Create very slow, calm breathing tremolo
       const tremoloOsc = ctx.createOscillator();
       const tremoloGain = ctx.createGain();
       
-      // Setup tremolo
-      tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 4.0; // 4 Hz tremolo for 432Hz
-      tremoloGain.gain.value = 0.1; // Gentle tremolo for calibration
-      
-      // Create vibrato
+      // Create subtle vibrato
       const vibratoOsc = ctx.createOscillator();
       const vibratoGain = ctx.createGain();
-      vibratoOsc.type = 'sine';
-      vibratoOsc.frequency.value = 5.5; // 5.5 Hz vibrato
-      vibratoGain.gain.value = 432 * 0.0015; // Very subtle for 432Hz
       
-      // Connect audio graph
+      // Create gentle chorus effect for meditation
+      const chorusOsc = ctx.createOscillator();
+      const chorusGain = ctx.createGain();
+      
+      // Setup main oscillator
+      osc.type = 'sine';
+      osc.frequency.value = 432;
+      
+      // Setup harmonic (octave up, very subtle)
+      harmonic.type = 'sine';
+      harmonic.frequency.value = 432 * 2;
+      harmonicGain.gain.value = 0.015; // Very subtle for meditation
+      
+      // Setup tremolo (very slow, calm breathing)
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 0.3; // Very slow, calm breathing (18 breaths per minute)
+      tremoloGain.gain.value = 0.08; // Gentle breathing effect
+      
+      // Setup vibrato (very gentle pitch variation)
+      vibratoOsc.type = 'sine';
+      vibratoOsc.frequency.value = 2.8; // Slower, more natural
+      vibratoGain.gain.value = 432 * 0.0003; // Much gentler
+      
+      // Setup chorus (very subtle detuning for smoothness)
+      chorusOsc.type = 'sine';
+      chorusOsc.frequency.value = 0.3; // Very slow for smoothness
+      chorusGain.gain.value = 432 * 0.00005; // Ultra subtle
+      
+      // Connect audio graph with filter for smoothness
       osc.connect(gain);
-      gain.connect(master);
+      harmonic.connect(harmonicGain);
+      harmonicGain.connect(gain);
+      gain.connect(filter); // Apply filter for smoothness
+      filter.connect(master);
       
       // Connect modulation
       tremoloOsc.connect(tremoloGain);
@@ -120,24 +153,29 @@ export default function CalibrationPage() {
       vibratoOsc.connect(vibratoGain);
       vibratoGain.connect(osc.frequency);
       
-      osc.type = 'sine';
-      osc.frequency.value = 432;
+      // Connect chorus effect
+      chorusOsc.connect(chorusGain);
+      chorusGain.connect(osc.frequency);
       
-      // Smooth fade in
+      // Smooth fade in for meditation
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.1); // Lower volume for meditation
       
       // Start all oscillators
       osc.start();
+      harmonic.start();
       tremoloOsc.start();
       vibratoOsc.start();
+      chorusOsc.start();
       
       oscRef.current = osc;
       gainRef.current = gain;
       
       // Store for cleanup
+      (osc as any).harmonic = harmonic;
       (osc as any).tremoloOsc = tremoloOsc;
       (osc as any).vibratoOsc = vibratoOsc;
+      (osc as any).chorusOsc = chorusOsc;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -147,17 +185,21 @@ export default function CalibrationPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      // Smooth fade out
+      // Smooth fade out for meditation
       gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
       
       setTimeout(() => {
         if (oscRef.current) {
           // Stop modulation oscillators
+          const harmonic = (oscRef.current as any).harmonic;
           const tremoloOsc = (oscRef.current as any).tremoloOsc;
           const vibratoOsc = (oscRef.current as any).vibratoOsc;
+          const chorusOsc = (oscRef.current as any).chorusOsc;
           
+          if (harmonic) harmonic.stop();
           if (tremoloOsc) tremoloOsc.stop();
           if (vibratoOsc) vibratoOsc.stop();
+          if (chorusOsc) chorusOsc.stop();
           
           oscRef.current.stop();
           oscRef.current = null;
