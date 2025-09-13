@@ -137,7 +137,7 @@ export default function PrefeelPage() {
       if (isLastFreq) {
         // Tüm frekanslar tamamlandı
         completeStep('prefeel');
-        router.push('/freq/main');
+        router.push('/freq/discovery');
       } else {
         // Sonraki frekansa geç
         setCurrentFreqIndex(prev => prev + 1);
