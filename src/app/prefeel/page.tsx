@@ -112,10 +112,10 @@ export default function PrefeelPage() {
       harmonic.frequency.value = currentFreq * 2;
       harmonicGain.gain.value = 0.015 * freqFactor; // Much softer for high frequencies
       
-      // Setup tremolo (breathing-like modulation)
+      // Setup tremolo (very slow, calm breathing-like modulation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 2.2; // Slower, more breathing-like
-      tremoloGain.gain.value = 0.06; // Slightly more noticeable for breathing effect
+      tremoloOsc.frequency.value = 0.3; // Very slow, calm breathing (18 breaths per minute)
+      tremoloGain.gain.value = 0.08; // More noticeable for gentle breathing effect
       
       // Connect audio graph with filter for smoothness
       osc.connect(gain);

@@ -227,10 +227,10 @@ export default function FrequencyDiscoveryPage() {
       harmonic3.frequency.value = currentFreq * 1.5; // Perfect fifth
       harmonic3Gain.gain.value = 0.008 * freqFactor; // Much softer for high frequencies
       
-      // Setup tremolo (breathing-like modulation)
+      // Setup tremolo (very slow, calm breathing-like modulation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 2.2; // Slower, more breathing-like
-      tremoloGain.gain.value = 0.06; // Slightly more noticeable for breathing effect
+      tremoloOsc.frequency.value = 0.3; // Very slow, calm breathing (18 breaths per minute)
+      tremoloGain.gain.value = 0.08; // More noticeable for gentle breathing effect
       
       // Setup vibrato (very gentle pitch variation)
       vibratoOsc.type = 'sine';
