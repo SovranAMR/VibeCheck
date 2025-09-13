@@ -210,29 +210,29 @@ export default function FrequencyDiscoveryPage() {
       osc.type = 'sine';
       osc.frequency.value = currentFreq;
       
-      // Setup harmonics for rich, warm sound
+      // Setup harmonics for warm, meditative sound
       harmonic2.type = 'sine';
       harmonic2.frequency.value = currentFreq * 2; // Octave
-      harmonic2Gain.gain.value = 0.025; // Subtle octave
+      harmonic2Gain.gain.value = 0.015; // Very subtle octave for meditation
       
       harmonic3.type = 'sine';
       harmonic3.frequency.value = currentFreq * 1.5; // Perfect fifth
-      harmonic3Gain.gain.value = 0.015; // Very subtle fifth
+      harmonic3Gain.gain.value = 0.008; // Ultra subtle fifth for meditation
       
-      // Setup tremolo (gentle volume modulation)
+      // Setup tremolo (very gentle volume modulation for meditation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 3.5; // Gentle 3.5Hz tremolo
-      tremoloGain.gain.value = 0.08; // Slightly more noticeable
+      tremoloOsc.frequency.value = 2.8; // Slower, more meditative tremolo
+      tremoloGain.gain.value = 0.04; // Much gentler for meditation
       
-      // Setup vibrato (subtle pitch variation)
+      // Setup vibrato (very subtle pitch variation for meditation)
       vibratoOsc.type = 'sine';
-      vibratoOsc.frequency.value = 4.5; // Gentle 4.5Hz vibrato
-      vibratoGain.gain.value = currentFreq * 0.0012; // Slightly more vibrato
+      vibratoOsc.frequency.value = 3.2; // Slower, more meditative vibrato
+      vibratoGain.gain.value = currentFreq * 0.0005; // Much gentler vibrato
       
-      // Setup chorus (very subtle detuning)
+      // Setup chorus (very subtle detuning for meditation)
       chorusOsc.type = 'sine';
-      chorusOsc.frequency.value = 0.8; // Slow chorus
-      chorusGain.gain.value = currentFreq * 0.0003; // Very subtle detuning
+      chorusOsc.frequency.value = 0.5; // Very slow chorus for meditation
+      chorusGain.gain.value = currentFreq * 0.0001; // Ultra subtle detuning
       
       // Connect audio graph
       osc.connect(gain);
@@ -253,9 +253,9 @@ export default function FrequencyDiscoveryPage() {
       chorusOsc.connect(chorusGain);
       chorusGain.connect(osc.frequency);
       
-      // Smooth fade in
+      // Smooth fade in for meditation
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.1); // Lower volume for meditation
       
       // Start all oscillators
       osc.start();

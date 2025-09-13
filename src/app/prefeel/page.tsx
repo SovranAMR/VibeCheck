@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAudioEngine } from '@/stores/audioEngine';
 import { useSessionStore } from '@/stores/sessionStore';
 import { FeelType, BodyLocusType } from '@/types';
+import AudioVisualizer from '@/components/AudioVisualizer';
 
 const PREFEEL_FREQUENCIES = [528, 220, 40]; // Hz
 
@@ -82,22 +83,57 @@ export default function PrefeelPage() {
     setHasPlayedCurrent(true);
     
     try {
+      // Create main oscillator with meditative sound
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      osc.connect(gain);
-      gain.connect(master);
+      // Create subtle harmonic for warmth
+      const harmonic = ctx.createOscillator();
+      const harmonicGain = ctx.createGain();
       
+      // Create gentle tremolo for meditation
+      const tremoloOsc = ctx.createOscillator();
+      const tremoloGain = ctx.createGain();
+      
+      // Setup main oscillator
       osc.type = 'sine';
       osc.frequency.value = currentFreq;
       
-      gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05);
+      // Setup harmonic (octave up, very subtle)
+      harmonic.type = 'sine';
+      harmonic.frequency.value = currentFreq * 2;
+      harmonicGain.gain.value = 0.015; // Very subtle for meditation
       
+      // Setup tremolo (gentle volume modulation)
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 2.8; // Slow, meditative tremolo
+      tremoloGain.gain.value = 0.04; // Gentle for meditation
+      
+      // Connect audio graph
+      osc.connect(gain);
+      harmonic.connect(harmonicGain);
+      harmonicGain.connect(gain);
+      gain.connect(master);
+      
+      // Connect modulation
+      tremoloOsc.connect(tremoloGain);
+      tremoloGain.connect(gain.gain);
+      
+      // Smooth fade in for meditation
+      gain.gain.value = 0;
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.1); // Lower volume for meditation
+      
+      // Start all oscillators
       osc.start();
+      harmonic.start();
+      tremoloOsc.start();
       
       oscRef.current = osc;
       gainRef.current = gain;
+      
+      // Store for cleanup
+      (osc as any).harmonic = harmonic;
+      (osc as any).tremoloOsc = tremoloOsc;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -107,15 +143,23 @@ export default function PrefeelPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
+      // Smooth fade out for meditation
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
       
       setTimeout(() => {
         if (oscRef.current) {
+          // Stop modulation oscillators
+          const harmonic = (oscRef.current as any).harmonic;
+          const tremoloOsc = (oscRef.current as any).tremoloOsc;
+          
+          if (harmonic) harmonic.stop();
+          if (tremoloOsc) tremoloOsc.stop();
+          
           oscRef.current.stop();
           oscRef.current = null;
           gainRef.current = null;
         }
-      }, 60);
+      }, 120);
     }
     
     setIsContinuousPlaying(false);
@@ -232,6 +276,11 @@ export default function PrefeelPage() {
               {currentFreqIndex + 1} / {PREFEEL_FREQUENCIES.length}
             </p>
           </div>
+        </div>
+
+        {/* Audio Visualizer */}
+        <div className="flex justify-center items-center h-32">
+          <AudioVisualizer isPlaying={isPlaying || isContinuousPlaying} />
         </div>
 
         {/* Play Options */}
