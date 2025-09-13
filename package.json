@@ -15,6 +15,7 @@
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "autoprefixer": "^10.4.21",
+    "framer-motion": "^12.23.12",
     "html-to-image": "^1.11.13",
     "lamejs": "^1.2.1",
     "next": "15.5.2",

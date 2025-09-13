@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 
 interface AudioEngineStore extends AudioEngine {
   // State
+  isInitialized: boolean;
   isPlaying: boolean;
   currentFrequency: number | null;
   analyser: AnalyserNode | null;
