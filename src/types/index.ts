@@ -36,8 +36,8 @@ export interface FixedFreqItem {
 // Serbest seçim
 export interface FreePick {
   f: number;
-  feel: FeelType;
-  body: BodyLocusType[]; // Multiple selection için array
+  feel?: FeelType;
+  body?: BodyLocusType[]; // Multiple selection için array
 }
 
 // Zaman algısı
