@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAudioEngine } from '@/stores/audioEngine';
 import { useSessionStore } from '@/stores/sessionStore';
 import { FeelType, BodyLocusType } from '@/types';
+import AudioVisualizer from '@/components/AudioVisualizer';
 
 export default function CalibrationPage() {
   const router = useRouter();
@@ -307,6 +308,11 @@ export default function CalibrationPage() {
               </div>
             </div>
 
+            {/* Audio Visualizer */}
+            <div className="flex justify-center items-center h-32">
+              <AudioVisualizer isPlaying={isPlaying || isContinuousPlaying} />
+            </div>
+
             {/* Test Button */}
             <button
               onClick={handlePlayCalibrationTone}
@@ -335,6 +341,11 @@ export default function CalibrationPage() {
         {/* Experience Phase */}
         {currentPhase === 'experience' && (
           <div className="space-y-8">
+            {/* Audio Visualizer */}
+            <div className="flex justify-center items-center h-32">
+              <AudioVisualizer isPlaying={isPlaying || isContinuousPlaying} />
+            </div>
+
             {/* Play Options */}
             {!isPlaying && !isContinuousPlaying && experienceData.feel === null && (
               <div className="space-y-4">

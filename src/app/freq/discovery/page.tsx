@@ -162,11 +162,9 @@ export default function FrequencyDiscoveryPage() {
     const freq = sliderToFreq(sliderValue);
     setCurrentFreq(freq);
     
-    // Update playing frequency in real-time
-    if (isFreepickPlaying && oscRef.current) {
-      oscRef.current.frequency.setValueAtTime(freq, ctx!.currentTime);
-    }
-  }, [sliderValue, isFreepickPlaying, ctx, mode]);
+    // Don't update playing frequency in real-time to avoid sound changes
+    // User needs to stop and restart to hear new frequency
+  }, [sliderValue, mode]);
 
 
   const startContinuousPlay = async () => {
@@ -186,104 +184,96 @@ export default function FrequencyDiscoveryPage() {
     setListeningStartTime(Date.now());
     
     try {
-      // Create stereo meditation setup
-      const pannerL = ctx.createStereoPanner();
-      const pannerR = ctx.createStereoPanner();
-      pannerL.pan.value = -1;
-      pannerR.pan.value = 1;
+      // Create main oscillator with rich, beautiful sound (same as audio engine)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       
-      // Binaural meditation frequencies
-      const binauralDiff = 6; // Gentler for continuous listening
-      const oscL = ctx.createOscillator();
-      const oscR = ctx.createOscillator();
-      const gainL = ctx.createGain();
-      const gainR = ctx.createGain();
+      // Create multiple harmonics for richness
+      const harmonic2 = ctx.createOscillator(); // Octave
+      const harmonic3 = ctx.createOscillator(); // Perfect fifth
+      const harmonic2Gain = ctx.createGain();
+      const harmonic3Gain = ctx.createGain();
       
-      // Subtle harmonics for richness
-      const harmonic2L = ctx.createOscillator();
-      const harmonic2R = ctx.createOscillator();
-      const harmonic2GainL = ctx.createGain();
-      const harmonic2GainR = ctx.createGain();
-      
-      // Very gentle modulation for continuous play
+      // Create gentle tremolo for natural feel
       const tremoloOsc = ctx.createOscillator();
       const tremoloGain = ctx.createGain();
-      tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 3.2; // Slower for meditation
-      tremoloGain.gain.value = 0.06; // Very subtle
       
+      // Create subtle vibrato
       const vibratoOsc = ctx.createOscillator();
-      const vibratoGainL = ctx.createGain();
-      const vibratoGainR = ctx.createGain();
+      const vibratoGain = ctx.createGain();
+      
+      // Create gentle chorus effect
+      const chorusOsc = ctx.createOscillator();
+      const chorusGain = ctx.createGain();
+      
+      // Setup main oscillator
+      osc.type = 'sine';
+      osc.frequency.value = currentFreq;
+      
+      // Setup harmonics for rich, warm sound
+      harmonic2.type = 'sine';
+      harmonic2.frequency.value = currentFreq * 2; // Octave
+      harmonic2Gain.gain.value = 0.025; // Subtle octave
+      
+      harmonic3.type = 'sine';
+      harmonic3.frequency.value = currentFreq * 1.5; // Perfect fifth
+      harmonic3Gain.gain.value = 0.015; // Very subtle fifth
+      
+      // Setup tremolo (gentle volume modulation)
+      tremoloOsc.type = 'sine';
+      tremoloOsc.frequency.value = 3.5; // Gentle 3.5Hz tremolo
+      tremoloGain.gain.value = 0.08; // Slightly more noticeable
+      
+      // Setup vibrato (subtle pitch variation)
       vibratoOsc.type = 'sine';
-      vibratoOsc.frequency.value = 3.8;
-      vibratoGainL.gain.value = currentFreq * 0.0008; // Ultra subtle
-      vibratoGainR.gain.value = (currentFreq + binauralDiff) * 0.0008;
+      vibratoOsc.frequency.value = 4.5; // Gentle 4.5Hz vibrato
+      vibratoGain.gain.value = currentFreq * 0.0012; // Slightly more vibrato
       
-      // Setup frequencies
-      oscL.frequency.value = currentFreq;
-      oscR.frequency.value = currentFreq + binauralDiff;
-      harmonic2L.frequency.value = currentFreq * 2;
-      harmonic2R.frequency.value = (currentFreq + binauralDiff) * 2;
-      
-      // Configure oscillators
-      oscL.type = 'sine';
-      oscR.type = 'sine';
-      harmonic2L.type = 'sine';
-      harmonic2R.type = 'sine';
-      
-      // Very quiet harmonics
-      harmonic2GainL.gain.value = 0.03;
-      harmonic2GainR.gain.value = 0.03;
+      // Setup chorus (very subtle detuning)
+      chorusOsc.type = 'sine';
+      chorusOsc.frequency.value = 0.8; // Slow chorus
+      chorusGain.gain.value = currentFreq * 0.0003; // Very subtle detuning
       
       // Connect audio graph
-      oscL.connect(gainL);
-      oscR.connect(gainR);
-      harmonic2L.connect(harmonic2GainL);
-      harmonic2R.connect(harmonic2GainR);
-      
-      gainL.connect(pannerL);
-      gainR.connect(pannerR);
-      harmonic2GainL.connect(pannerL);
-      harmonic2GainR.connect(pannerR);
-      
-      pannerL.connect(master);
-      pannerR.connect(master);
+      osc.connect(gain);
+      harmonic2.connect(harmonic2Gain);
+      harmonic3.connect(harmonic3Gain);
+      harmonic2Gain.connect(gain);
+      harmonic3Gain.connect(gain);
+      gain.connect(master);
       
       // Connect modulation
       tremoloOsc.connect(tremoloGain);
-      tremoloGain.connect(gainL.gain);
-      tremoloGain.connect(gainR.gain);
+      tremoloGain.connect(gain.gain);
       
-      vibratoOsc.connect(vibratoGainL);
-      vibratoOsc.connect(vibratoGainR);
-      vibratoGainL.connect(oscL.frequency);
-      vibratoGainR.connect(oscR.frequency);
+      vibratoOsc.connect(vibratoGain);
+      vibratoGain.connect(osc.frequency);
       
-      // Very smooth meditation fade in
-      gainL.gain.value = 0;
-      gainR.gain.value = 0;
-      gainL.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15); // Lower volume, slower fade
-      gainR.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15);
+      // Connect chorus effect
+      chorusOsc.connect(chorusGain);
+      chorusGain.connect(osc.frequency);
+      
+      // Smooth fade in
+      gain.gain.value = 0;
+      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.1);
       
       // Start all oscillators
-      oscL.start();
-      oscR.start();
-      harmonic2L.start();
-      harmonic2R.start();
+      osc.start();
+      harmonic2.start();
+      harmonic3.start();
       tremoloOsc.start();
       vibratoOsc.start();
+      chorusOsc.start();
       
-      oscRef.current = oscL; // Store main osc
-      gainRef.current = gainL; // Store main gain
+      oscRef.current = osc; // Store main osc
+      gainRef.current = gain; // Store main gain
       
       // Store all for cleanup
-      (oscL as any).oscR = oscR;
-      (oscL as any).harmonic2L = harmonic2L;
-      (oscL as any).harmonic2R = harmonic2R;
-      (oscL as any).tremoloOsc = tremoloOsc;
-      (oscL as any).vibratoOsc = vibratoOsc;
-      (oscL as any).gainR = gainR;
+      (osc as any).harmonic2 = harmonic2;
+      (osc as any).harmonic3 = harmonic3;
+      (osc as any).tremoloOsc = tremoloOsc;
+      (osc as any).vibratoOsc = vibratoOsc;
+      (osc as any).chorusOsc = chorusOsc;
       
     } catch (error) {
       console.error('Continuous play failed:', error);
@@ -293,31 +283,29 @@ export default function FrequencyDiscoveryPage() {
 
   const stopContinuousPlay = () => {
     if (oscRef.current && gainRef.current && ctx) {
-      // Very smooth meditation fade out
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
-      const gainR = (oscRef.current as any).gainR;
-      if (gainR) gainR.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      // Smooth fade out
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
       
       setTimeout(() => {
         if (oscRef.current) {
-          // Stop all meditation oscillators
-          const oscR = (oscRef.current as any).oscR;
-          const harmonic2L = (oscRef.current as any).harmonic2L;
-          const harmonic2R = (oscRef.current as any).harmonic2R;
+          // Stop modulation oscillators
+          const harmonic2 = (oscRef.current as any).harmonic2;
+          const harmonic3 = (oscRef.current as any).harmonic3;
           const tremoloOsc = (oscRef.current as any).tremoloOsc;
           const vibratoOsc = (oscRef.current as any).vibratoOsc;
+          const chorusOsc = (oscRef.current as any).chorusOsc;
           
-          if (oscR) oscR.stop();
-          if (harmonic2L) harmonic2L.stop();
-          if (harmonic2R) harmonic2R.stop();
+          if (harmonic2) harmonic2.stop();
+          if (harmonic3) harmonic3.stop();
           if (tremoloOsc) tremoloOsc.stop();
           if (vibratoOsc) vibratoOsc.stop();
+          if (chorusOsc) chorusOsc.stop();
           
           oscRef.current.stop();
           oscRef.current = null;
           gainRef.current = null;
         }
-      }, 220); // Longer for meditation fade
+      }, 120);
     }
     
     setIsFreepickPlaying(false);

@@ -127,7 +127,7 @@ export const useAudioEngine = create<AudioEngineStore>()(
         }
       },
 
-      // Create and play tone with fade-in/out
+      // Create and play tone with consistent, beautiful sound
       makeTone: async (fHz: number, durationSec: number, shape: OscillatorType = 'sine', easing: boolean = true) => {
         const { ctx, master, isUnlocked } = get();
         
@@ -166,120 +166,106 @@ export const useAudioEngine = create<AudioEngineStore>()(
         }
 
         try {
-          // Create stereo panner for binaural effect
-          const pannerL = ctx.createStereoPanner();
-          const pannerR = ctx.createStereoPanner();
-          pannerL.pan.value = -1; // Full left
-          pannerR.pan.value = 1;  // Full right
+          // Create main oscillator with rich, beautiful sound
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
           
-          // Create main oscillators (binaural - slightly different frequencies)
-          const oscL = ctx.createOscillator();
-          const oscR = ctx.createOscillator();
-          const gainL = ctx.createGain();
-          const gainR = ctx.createGain();
+          // Create multiple harmonics for richness
+          const harmonic2 = ctx.createOscillator(); // Octave
+          const harmonic3 = ctx.createOscillator(); // Perfect fifth
+          const harmonic2Gain = ctx.createGain();
+          const harmonic3Gain = ctx.createGain();
           
-          // Binaural beat calculation (8-10 Hz difference for alpha/theta waves)
-          const binauralDiff = 8; // Hz difference for relaxation
-          const leftFreq = fHz;
-          const rightFreq = fHz + binauralDiff;
-          
-          // Create harmonics for richness (very subtle)
-          const harmonic2L = ctx.createOscillator();
-          const harmonic2R = ctx.createOscillator();
-          const harmonic2GainL = ctx.createGain();
-          const harmonic2GainR = ctx.createGain();
-          
-          // Setup harmonics (octave up, very quiet)
-          harmonic2L.frequency.value = leftFreq * 2;
-          harmonic2R.frequency.value = rightFreq * 2;
-          harmonic2GainL.gain.value = 0.05; // Very subtle
-          harmonic2GainR.gain.value = 0.05;
-          
-          // Create tremolo for natural breathing feel
+          // Create gentle tremolo for natural feel
           const tremoloOsc = ctx.createOscillator();
           const tremoloGain = ctx.createGain();
-          tremoloOsc.type = 'sine';
-          tremoloOsc.frequency.value = 3.8; // Slower, more meditative
-          tremoloGain.gain.value = 0.08; // More subtle for meditation
           
-          // Create vibrato (very gentle)
+          // Create subtle vibrato
           const vibratoOsc = ctx.createOscillator();
-          const vibratoGainL = ctx.createGain();
-          const vibratoGainR = ctx.createGain();
+          const vibratoGain = ctx.createGain();
+          
+          // Create gentle chorus effect
+          const chorusOsc = ctx.createOscillator();
+          const chorusGain = ctx.createGain();
+          
+          // Setup main oscillator
+          osc.type = 'sine';
+          osc.frequency.value = fHz;
+          
+          // Setup harmonics for rich, warm sound
+          harmonic2.type = 'sine';
+          harmonic2.frequency.value = fHz * 2; // Octave
+          harmonic2Gain.gain.value = 0.025; // Subtle octave
+          
+          harmonic3.type = 'sine';
+          harmonic3.frequency.value = fHz * 1.5; // Perfect fifth
+          harmonic3Gain.gain.value = 0.015; // Very subtle fifth
+          
+          // Setup tremolo (gentle volume modulation)
+          tremoloOsc.type = 'sine';
+          tremoloOsc.frequency.value = 3.5; // Gentle 3.5Hz tremolo
+          tremoloGain.gain.value = 0.08; // Slightly more noticeable
+          
+          // Setup vibrato (subtle pitch variation)
           vibratoOsc.type = 'sine';
-          vibratoOsc.frequency.value = 4.2; // Gentle vibrato
-          vibratoGainL.gain.value = leftFreq * 0.001; // Very subtle
-          vibratoGainR.gain.value = rightFreq * 0.001;
+          vibratoOsc.frequency.value = 4.5; // Gentle 4.5Hz vibrato
+          vibratoGain.gain.value = fHz * 0.0012; // Slightly more vibrato
           
-          // Connect main audio graph
-          oscL.connect(gainL);
-          oscR.connect(gainR);
-          gainL.connect(pannerL);
-          gainR.connect(pannerR);
-          pannerL.connect(master);
-          pannerR.connect(master);
+          // Setup chorus (very subtle detuning)
+          chorusOsc.type = 'sine';
+          chorusOsc.frequency.value = 0.8; // Slow chorus
+          chorusGain.gain.value = fHz * 0.0003; // Very subtle detuning
           
-          // Connect harmonics
-          harmonic2L.connect(harmonic2GainL);
-          harmonic2R.connect(harmonic2GainR);
-          harmonic2GainL.connect(pannerL);
-          harmonic2GainR.connect(pannerR);
+          // Connect audio graph
+          osc.connect(gain);
+          harmonic2.connect(harmonic2Gain);
+          harmonic3.connect(harmonic3Gain);
+          harmonic2Gain.connect(gain);
+          harmonic3Gain.connect(gain);
+          gain.connect(master);
           
           // Connect modulation
           tremoloOsc.connect(tremoloGain);
-          tremoloGain.connect(gainL.gain);
-          tremoloGain.connect(gainR.gain);
+          tremoloGain.connect(gain.gain);
           
-          vibratoOsc.connect(vibratoGainL);
-          vibratoOsc.connect(vibratoGainR);
-          vibratoGainL.connect(oscL.frequency);
-          vibratoGainR.connect(oscR.frequency);
+          vibratoOsc.connect(vibratoGain);
+          vibratoGain.connect(osc.frequency);
           
-          // Configure oscillators
-          oscL.type = 'sine';
-          oscR.type = 'sine';
-          harmonic2L.type = 'sine';
-          harmonic2R.type = 'sine';
-          oscL.frequency.value = leftFreq;
-          oscR.frequency.value = rightFreq;
+          // Connect chorus effect
+          chorusOsc.connect(chorusGain);
+          chorusGain.connect(osc.frequency);
           
           const now = ctx.currentTime;
-          const fadeTime = easing ? 0.08 : 0; // Even smoother fade for meditation
+          const fadeTime = easing ? 0.1 : 0;
           
-          // Set initial volume (lower for meditation)
-          gainL.gain.setValueAtTime(0, now);
-          gainR.gain.setValueAtTime(0, now);
+          // Set initial volume
+          gain.gain.setValueAtTime(0, now);
           
-          // Very smooth meditation-style fade
+          // Smooth fade in/out
           if (fadeTime > 0) {
-            gainL.gain.linearRampToValueAtTime(0.35, now + fadeTime); // Lower volume for meditation
-            gainR.gain.linearRampToValueAtTime(0.35, now + fadeTime);
-            gainL.gain.linearRampToValueAtTime(0.35, now + durationSec - fadeTime);
-            gainR.gain.linearRampToValueAtTime(0.35, now + durationSec - fadeTime);
-            gainL.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
-            gainR.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+            gain.gain.linearRampToValueAtTime(0.4, now + fadeTime);
+            gain.gain.linearRampToValueAtTime(0.4, now + durationSec - fadeTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
           } else {
-            gainL.gain.setValueAtTime(0.35, now);
-            gainR.gain.setValueAtTime(0.35, now);
-            gainL.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
-            gainR.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
           }
           
           // Start all oscillators
-          oscL.start(now);
-          oscR.start(now);
-          harmonic2L.start(now);
-          harmonic2R.start(now);
+          osc.start(now);
+          harmonic2.start(now);
+          harmonic3.start(now);
           tremoloOsc.start(now);
           vibratoOsc.start(now);
+          chorusOsc.start(now);
           
           // Schedule stops
-          oscL.stop(now + durationSec);
-          oscR.stop(now + durationSec);
-          harmonic2L.stop(now + durationSec);
-          harmonic2R.stop(now + durationSec);
+          osc.stop(now + durationSec);
+          harmonic2.stop(now + durationSec);
+          harmonic3.stop(now + durationSec);
           tremoloOsc.stop(now + durationSec);
           vibratoOsc.stop(now + durationSec);
+          chorusOsc.stop(now + durationSec);
           
           // Update state
           set({ isPlaying: true, currentFrequency: fHz });
@@ -288,9 +274,9 @@ export const useAudioEngine = create<AudioEngineStore>()(
           
           // Clean up when finished
           return new Promise<void>((resolve) => {
-            oscL.onended = () => {
+            osc.onended = () => {
               set({ isPlaying: false, currentFrequency: null });
-              console.log('Meditation tone ended:', fHz, 'Hz');
+              console.log('Tone ended:', fHz, 'Hz');
               resolve();
             };
           });
