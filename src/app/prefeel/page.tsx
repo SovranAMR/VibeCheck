@@ -83,15 +83,21 @@ export default function PrefeelPage() {
     setHasPlayedCurrent(true);
     
     try {
-      // Create main oscillator with meditative sound
+      // Create main oscillator with smooth, breathable sound
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      // Create subtle harmonic for warmth
+      // Create low-pass filter for high frequencies to reduce harshness
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = Math.min(8000, currentFreq * 8); // Dynamic cutoff based on frequency
+      filter.Q.value = 0.5; // Gentle rolloff
+      
+      // Create subtle harmonic for warmth (frequency-dependent)
       const harmonic = ctx.createOscillator();
       const harmonicGain = ctx.createGain();
       
-      // Create gentle tremolo for meditation
+      // Create gentle tremolo for breathing effect
       const tremoloOsc = ctx.createOscillator();
       const tremoloGain = ctx.createGain();
       
@@ -99,21 +105,24 @@ export default function PrefeelPage() {
       osc.type = 'sine';
       osc.frequency.value = currentFreq;
       
-      // Setup harmonic (octave up, very subtle)
+      // Setup harmonic with frequency-dependent level (softer for high frequencies)
+      const freqFactor = Math.max(0.1, 1 - (currentFreq - 200) / 1000); // Softer harmonics for higher frequencies
+      
       harmonic.type = 'sine';
       harmonic.frequency.value = currentFreq * 2;
-      harmonicGain.gain.value = 0.015; // Very subtle for meditation
+      harmonicGain.gain.value = 0.015 * freqFactor; // Much softer for high frequencies
       
-      // Setup tremolo (gentle volume modulation)
+      // Setup tremolo (breathing-like modulation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 2.8; // Slow, meditative tremolo
-      tremoloGain.gain.value = 0.04; // Gentle for meditation
+      tremoloOsc.frequency.value = 2.2; // Slower, more breathing-like
+      tremoloGain.gain.value = 0.06; // Slightly more noticeable for breathing effect
       
-      // Connect audio graph
+      // Connect audio graph with filter for smoothness
       osc.connect(gain);
       harmonic.connect(harmonicGain);
       harmonicGain.connect(gain);
-      gain.connect(master);
+      gain.connect(filter); // Apply filter for smoothness
+      filter.connect(master);
       
       // Connect modulation
       tremoloOsc.connect(tremoloGain);

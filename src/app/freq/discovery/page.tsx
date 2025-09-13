@@ -184,11 +184,17 @@ export default function FrequencyDiscoveryPage() {
     setListeningStartTime(Date.now());
     
     try {
-      // Create main oscillator with rich, beautiful sound (same as audio engine)
+      // Create main oscillator with smooth, breathable sound (same as audio engine)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      // Create multiple harmonics for richness
+      // Create low-pass filter for high frequencies to reduce harshness
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = Math.min(8000, currentFreq * 8); // Dynamic cutoff based on frequency
+      filter.Q.value = 0.5; // Gentle rolloff
+      
+      // Create subtle harmonics only for lower frequencies
       const harmonic2 = ctx.createOscillator(); // Octave
       const harmonic3 = ctx.createOscillator(); // Perfect fifth
       const harmonic2Gain = ctx.createGain();
@@ -210,37 +216,40 @@ export default function FrequencyDiscoveryPage() {
       osc.type = 'sine';
       osc.frequency.value = currentFreq;
       
-      // Setup harmonics for warm, meditative sound
+      // Setup harmonics with frequency-dependent levels (softer for high frequencies)
+      const freqFactor = Math.max(0.1, 1 - (currentFreq - 200) / 1000); // Softer harmonics for higher frequencies
+      
       harmonic2.type = 'sine';
       harmonic2.frequency.value = currentFreq * 2; // Octave
-      harmonic2Gain.gain.value = 0.015; // Very subtle octave for meditation
+      harmonic2Gain.gain.value = 0.015 * freqFactor; // Much softer for high frequencies
       
       harmonic3.type = 'sine';
       harmonic3.frequency.value = currentFreq * 1.5; // Perfect fifth
-      harmonic3Gain.gain.value = 0.008; // Ultra subtle fifth for meditation
+      harmonic3Gain.gain.value = 0.008 * freqFactor; // Much softer for high frequencies
       
-      // Setup tremolo (very gentle volume modulation for meditation)
+      // Setup tremolo (breathing-like modulation)
       tremoloOsc.type = 'sine';
-      tremoloOsc.frequency.value = 2.8; // Slower, more meditative tremolo
-      tremoloGain.gain.value = 0.04; // Much gentler for meditation
+      tremoloOsc.frequency.value = 2.2; // Slower, more breathing-like
+      tremoloGain.gain.value = 0.06; // Slightly more noticeable for breathing effect
       
-      // Setup vibrato (very subtle pitch variation for meditation)
+      // Setup vibrato (very gentle pitch variation)
       vibratoOsc.type = 'sine';
-      vibratoOsc.frequency.value = 3.2; // Slower, more meditative vibrato
-      vibratoGain.gain.value = currentFreq * 0.0005; // Much gentler vibrato
+      vibratoOsc.frequency.value = 2.8; // Slower, more natural
+      vibratoGain.gain.value = currentFreq * 0.0003; // Much gentler, especially for high frequencies
       
-      // Setup chorus (very subtle detuning for meditation)
+      // Setup chorus (very subtle detuning for smoothness)
       chorusOsc.type = 'sine';
-      chorusOsc.frequency.value = 0.5; // Very slow chorus for meditation
-      chorusGain.gain.value = currentFreq * 0.0001; // Ultra subtle detuning
+      chorusOsc.frequency.value = 0.3; // Very slow for smoothness
+      chorusGain.gain.value = currentFreq * 0.00005; // Ultra subtle, especially for high frequencies
       
-      // Connect audio graph
+      // Connect audio graph with filter for smoothness
       osc.connect(gain);
       harmonic2.connect(harmonic2Gain);
       harmonic3.connect(harmonic3Gain);
       harmonic2Gain.connect(gain);
       harmonic3Gain.connect(gain);
-      gain.connect(master);
+      gain.connect(filter); // Apply filter for smoothness
+      filter.connect(master);
       
       // Connect modulation
       tremoloOsc.connect(tremoloGain);
