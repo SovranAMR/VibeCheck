@@ -54,6 +54,137 @@ export function calculateFQI(session: Partial<Session>): { scores: Scores; aura:
 }
 
 /**
+ * Aura Index (−1e8 .. +1e11)
+ * Büyük aralıkta, kişiye özgü tekil bir indeks üretir.
+ * Bileşenler: FQI, valence, beden dağılımı, nefes ritmi ve serbest seçim.
+ */
+export function computeAuraIndex(
+  session: Partial<Session>,
+  scores?: Scores,
+  aura?: AuraInfo
+): number {
+  const { scores: localScores, aura: localAura } = scores && aura ? { scores, aura } : calculateFQI(session);
+  const s = localScores;
+
+  // Valence bias (−1..+1)
+  const valence = (() => {
+    const fixed = session.fixed || [];
+    if (fixed.length === 0) return 0;
+    const positiveFeel = ['bliss', 'joy', 'peace', 'love', 'energy', 'clarity', 'warmth', 'expansion'];
+    const negativeFeel = ['tension', 'anxiety', 'sadness', 'anger', 'confusion', 'heaviness', 'restless', 'empty'];
+    let pos = 0, neg = 0;
+    for (const f of fixed) {
+      if (positiveFeel.includes(f.valence)) pos++; else if (negativeFeel.includes(f.valence)) neg++;
+    }
+    const tot = pos + neg;
+    if (tot === 0) return 0;
+    return (pos - neg) / tot;
+  })();
+
+  // Body distribution balance (0..1): üst/alt/orta dağılımı dengesi
+  const bodyBalance = (() => {
+    const fixed = session.fixed || [];
+    if (fixed.length === 0) return 0.5;
+    const counts = { upper: 0, middle: 0, lower: 0, general: 0 };
+    const upperBodies = ['crown', 'forehead', 'eyes', 'ears', 'throat'];
+    const middleBodies = ['heart', 'chest', 'solar_plexus', 'arms', 'hands'];
+    const lowerBodies = ['belly', 'sacral', 'legs', 'feet', 'spine'];
+    const generalBodies = ['full_body', 'aura_field', 'no_sensation'];
+    for (const it of fixed) {
+      for (const locus of it.locus) {
+        if (upperBodies.includes(locus)) counts.upper++; else if (middleBodies.includes(locus)) counts.middle++;
+        else if (lowerBodies.includes(locus)) counts.lower++; else if (generalBodies.includes(locus)) counts.general++;
+      }
+    }
+    const arr = [counts.upper, counts.middle, counts.lower].map(n => Math.max(1, n));
+    const sum = arr.reduce((a,b)=>a+b,0);
+    const probs = arr.map(n => n/sum);
+    // Entropy tabanlı denge metriği (yüksek = dengeli)
+    const entropy = -probs.reduce((acc,p)=> acc + p * Math.log2(p), 0) / Math.log2(3);
+    return Math.max(0, Math.min(1, entropy));
+  })();
+
+  // Breath calmness (0..1): 6 bpm yakınlığı ve oran dengesi
+  const breathCalm = (() => {
+    const b = session.breath;
+    if (!b) return 0.5;
+    const bpmCloseness = Math.max(0, 1 - Math.abs(b.bpm - 6) / 12); // 6 bpm etrafında yüksek
+    const ratio = b.exhaleAvg / Math.max(1, b.inhaleAvg);
+    const ratioBalance = 1 - Math.min(1, Math.abs(ratio - 1));
+    return Math.max(0, Math.min(1, 0.7 * bpmCloseness + 0.3 * ratioBalance));
+  })();
+
+  // Freepick anchoring
+  const freepickHz = session.freepick?.f || 432;
+  const anchor = Math.log2(Math.max(40, Math.min(8000, freepickHz)) / 432); // 432'ye göre oktav ofset
+
+  // Büyük aralık ölçekleme
+  const base = (s.FQI - 100) * 1_000_000; // −60..+70 → ~±1e8 skala
+  const mood = valence * 2_000_000_000; // ±2e9
+  const body = bodyBalance * 5_000_000_000; // 0..5e9
+  const calm = breathCalm * 10_000_000_000; // 0..1e10
+  const octave = anchor * 1_000_000_000; // negatif/pozitif küçük kaydırma
+
+  // Aura tipine küçük ofset (tipler arası ayrışma)
+  const auraBump = (() => {
+    const t = (localAura || { type: 'Aether' }).type;
+    const order: AuraType[] = ['Terra','Solar','Lunar','Aether','Zephyr','Quasar'];
+    const idx = Math.max(0, order.indexOf(t));
+    return idx * 500_000_000; // 0..2.5e9
+  })();
+
+  const idx = Math.round(base + mood + body + calm + octave + auraBump);
+  // Sınırla
+  return Math.max(-100_000_000, Math.min(100_000_000_000, idx));
+}
+
+/**
+ * Seçilen beden bölgelerine göre kişisel analiz maddeleri üretir
+ */
+export function buildRegionInsights(session: Partial<Session>): string[] {
+  const insights: string[] = [];
+  const fixed = session.fixed || [];
+  if (fixed.length === 0) return insights;
+
+  // Dominant bölgeler
+  const counts: Record<string, number> = {};
+  for (const it of fixed) {
+    for (const locus of it.locus) counts[locus] = (counts[locus] || 0) + 1;
+  }
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k);
+
+  if (top.length) {
+    insights.push(`Duyumsama ağırlıklı bölgeler: ${top.join(', ')}.`);
+  }
+
+  // Duygu tonu
+  const positiveFeel = ['bliss', 'joy', 'peace', 'love', 'energy', 'clarity', 'warmth', 'expansion'];
+  const negativeFeel = ['tension', 'anxiety', 'sadness', 'anger', 'confusion', 'heaviness', 'restless', 'empty'];
+  let pos=0, neg=0;
+  for (const it of fixed) {
+    if (positiveFeel.includes(it.valence)) pos++; else if (negativeFeel.includes(it.valence)) neg++;
+  }
+  const tot = pos + neg;
+  if (tot > 0) {
+    const ratio = Math.round(((pos - neg) / tot) * 100);
+    const tone = ratio >= 0 ? 'olumlu' : 'zorlu';
+    insights.push(`Duygu tonu ${tone}; denge skoru: ${ratio}.`);
+  }
+
+  // Frekans tercihleri
+  const liked = fixed.filter(f=>f.like >= 70).map(f=>f.f).slice(0,5);
+  if (liked.length) insights.push(`Güçlü rezonans frekansları: ${liked.join(' Hz, ')} Hz.`);
+
+  // Nefes uyumu
+  if (session.breath) {
+    const key = getBreathKeyHz(session.breath);
+    insights.push(`Nefes anahtar frekansı ~${Math.round(key)} Hz ile uyumlu seçimler önerilir.`);
+  }
+
+  return insights;
+}
+
+/**
  * Frekans bileşeni skorunu hesapla (F_freq)
  */
 function calculateFrequencyScore(session: Partial<Session>): number {

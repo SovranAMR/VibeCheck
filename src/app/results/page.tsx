@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/stores/sessionStore';
-import { calculateFQI, AURA_DESCRIPTIONS, buildAuraNarrative } from '@/lib/scoring';
+import { calculateFQI, AURA_DESCRIPTIONS, buildAuraNarrative, computeAuraIndex, buildRegionInsights } from '@/lib/scoring';
 import { Scores, AuraInfo } from '@/types';
 import emailjs from '@emailjs/browser';
 
@@ -86,6 +86,8 @@ export default function ResultsPage() {
     scores: Scores;
     aura: AuraInfo;
   } | null>(null);
+  const [auraIndex, setAuraIndex] = useState<number | null>(null);
+  const [regionInsights, setRegionInsights] = useState<string[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [userEmail, setUserEmail] = useState('');
@@ -103,6 +105,11 @@ export default function ResultsPage() {
       setResults(calculatedResults);
       if (!session.scores) setScores(calculatedResults.scores);
       if (!session.aura) setAura(calculatedResults.aura);
+
+      // Compute aura index and region insights
+      const idx = computeAuraIndex(session, calculatedResults.scores, calculatedResults.aura);
+      setAuraIndex(idx);
+      setRegionInsights(buildRegionInsights(session));
     }
   }, [session, results, setScores, setAura, setCurrentStep]);
 
@@ -318,6 +325,14 @@ export default function ResultsPage() {
             <div className="text-4xl">✨</div>
           </div>
 
+          {/* Aura Index */}
+          {auraIndex !== null && (
+            <div className="pt-4">
+              <div className="text-sm text-slate-400">Aura İndeksi (−100,000,000 … +100,000,000,000)</div>
+              <div className="text-2xl font-semibold text-purple-300">{auraIndex.toLocaleString('tr-TR')}</div>
+            </div>
+          )}
+
           {/* Breath-driven subtitle if available */}
           {session?.breath && (
             <div className="pt-4 text-slate-300 text-sm max-w-xl mx-auto">
@@ -465,6 +480,18 @@ export default function ResultsPage() {
             <div className="text-center text-sm text-slate-400 pt-4">
               Frekansları hangi vücut bölgelerinde hissettiğinizin dağılımı
             </div>
+
+            {/* Personalized Insights from selected regions */}
+            {regionInsights.length > 0 && (
+              <div className="pt-6">
+                <h3 className="text-center text-white text-lg mb-3">Kişisel Analiz</h3>
+                <ul className="space-y-2 max-w-2xl mx-auto text-slate-200 text-sm list-disc list-inside">
+                  {regionInsights.map((t, i) => (
+                    <li key={`rin-${i}`}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
