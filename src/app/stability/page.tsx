@@ -9,6 +9,7 @@ const TEST_DURATION = 30000; // 30 seconds
 const SAMPLE_INTERVAL = 50; // 50ms sampling
 const TARGET_RADIUS = 80; // pixels - larger circle
 const CENTER_SIZE = 8; // pixels
+const PROXY_OFFSET_PX = 64; // green proxy aim offset above finger (mobile friendly)
 
 interface Position {
   x: number;
@@ -30,6 +31,7 @@ export default function StabilityPage() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
   const [results, setResults] = useState<StabilityData | null>(null);
+  const [proxyAim, setProxyAim] = useState<boolean>(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
@@ -39,6 +41,7 @@ export default function StabilityPage() {
   const targetMoveRef = useRef<number>(0);
   const positionsRef = useRef<Position[]>([]);
   const targetPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastVibrateRef = useRef<number>(0);
   
   // Set canvas center on mount and resize
   useEffect(() => {
@@ -54,6 +57,10 @@ export default function StabilityPage() {
     
     updateCenter();
     window.addEventListener('resize', updateCenter);
+    // Enable proxy aim by default on small screens (mobile)
+    try {
+      if (window.innerWidth < 640) setProxyAim(true);
+    } catch {}
     return () => window.removeEventListener('resize', updateCenter);
   }, []);
 
@@ -288,37 +295,67 @@ export default function StabilityPage() {
     ctx.arc(center.x, center.y, TARGET_RADIUS, 0, 2 * Math.PI);
     ctx.stroke();
 
-    // Draw target (purple dot) - moves around (no center dot)
+    // Proximity-aware halo and target
+    const targetX = targetPos.x || center.x;
+    const targetY = targetPos.y || center.y;
+    const hasPos = isRunning && currentPos.x !== 0 && currentPos.y !== 0;
+    const displayX0 = hasPos ? currentPos.x : 0;
+    const displayY0 = hasPos ? (proxyAim ? Math.max(12, currentPos.y - PROXY_OFFSET_PX) : currentPos.y) : 0;
+    const dist = hasPos ? Math.hypot(displayX0 - targetX, displayY0 - targetY) : Infinity;
+    const near = dist < 20;
+
+    // Halo
+    ctx.save();
+    ctx.globalAlpha = near ? 0.25 : 0.15;
+    ctx.fillStyle = near ? '#22c55e' : '#8b5cf6';
+    ctx.beginPath();
+    ctx.arc(targetX, targetY, near ? 34 : 28, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.restore();
+
+    // Target dot
     ctx.fillStyle = '#8b5cf6';
     ctx.beginPath();
-    ctx.arc(targetPos.x || center.x, targetPos.y || center.y, 10, 0, 2 * Math.PI);
+    ctx.arc(targetX, targetY, 12, 0, 2 * Math.PI);
     ctx.fill();
     
-    // Draw current cursor position (green dot) if running
-    if (isRunning && currentPos.x !== 0 && currentPos.y !== 0) {
+    // Draw proxy cursor position (green dot) if running
+    if (hasPos) {
+      const displayX = displayX0;
+      const displayY = displayY0;
       ctx.fillStyle = '#10b981';
       ctx.beginPath();
-      ctx.arc(currentPos.x, currentPos.y, 6, 0, 2 * Math.PI);
+      ctx.arc(displayX, displayY, 7, 0, 2 * Math.PI);
       ctx.fill();
       
-      // Draw line from cursor to target
-      const target = { x: targetPos.x || center.x, y: targetPos.y || center.y };
+      // Draw line from display cursor to target
+      const target = { x: targetX, y: targetY };
       ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(currentPos.x, currentPos.y);
+      ctx.moveTo(displayX, displayY);
       ctx.lineTo(target.x, target.y);
       ctx.stroke();
-      
+       
       // Debug info
       ctx.fillStyle = '#ffffff';
       ctx.font = '12px monospace';
-      ctx.fillText(`Pos: ${currentPos.x.toFixed(0)}, ${currentPos.y.toFixed(0)}`, 10, 20);
+      ctx.fillText(`Touch: ${currentPos.x.toFixed(0)}, ${currentPos.y.toFixed(0)}`, 10, 20);
+      if (proxyAim) ctx.fillText(`Aim: ${displayX.toFixed(0)}, ${displayY.toFixed(0)}`, 10, 36);
       ctx.fillText(`Samples: ${positions.length}`, 10, 40);
-      
+       
       // Distance from target
-      const distance = Math.sqrt(Math.pow(currentPos.x - target.x, 2) + Math.pow(currentPos.y - target.y, 2));
+      const distance = Math.sqrt(Math.pow(displayX - target.x, 2) + Math.pow(displayY - target.y, 2));
       ctx.fillText(`Distance: ${distance.toFixed(1)}px`, 10, 60);
+
+      // Haptic feedback when very close (once per 500ms)
+      if (distance < 12) {
+        const nowTs = performance.now();
+        if (nowTs - lastVibrateRef.current > 500) {
+          try { (navigator as any).vibrate?.(10); } catch {}
+          lastVibrateRef.current = nowTs;
+        }
+      }
     }
 
     // Draw trail if running
@@ -334,7 +371,7 @@ export default function StabilityPage() {
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-  }, [currentPos, positions, isRunning]);
+  }, [currentPos, positions, isRunning, proxyAim]);
 
   const getScoreDescription = (score: number) => {
     if (score >= 90) return 'Olağanüstü';
@@ -486,8 +523,14 @@ export default function StabilityPage() {
 
             {/* Instructions */}
             <div className="text-sm text-slate-400 space-y-1">
-              <p>Yeşil noktayı (imleç) mor nokta üzerinde tutmaya çalış</p>
-              <p>Yeşil çizgi: hedefe mesafe | Yeşil iz: hareket geçmişi</p>
+              <p>Parmağını ekranda gezdir. Yeşil nokta parmağının üstünde görünür.</p>
+              <p>Yeşil noktayı mor noktanın üzerinde tutmaya çalış. Yaklaşınca halka yeşil olur, hafif titreşim verir.</p>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={proxyAim} onChange={(e)=>setProxyAim(e.target.checked)} className="accent-purple-500" />
+                  <span>Parmak ofsetli nişangâh (önerilen)</span>
+                </label>
+              </div>
             </div>
 
             {/* Stats */}

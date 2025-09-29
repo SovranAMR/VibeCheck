@@ -226,11 +226,7 @@ export default function CalibrationPage() {
 
   const handleComplete = () => {
     if (experienceData.feel && experienceData.body.length > 0) {
-      // Stop continuous play if running
-      if (isContinuousPlaying) {
-        stopContinuousPlay();
-      }
-      
+      // Sürekli dinleme seçme sırasında açık kalsın; burada zorla durdurma yok
       // Kaydet
       addPrefeelData({
         f: 432,
@@ -239,7 +235,7 @@ export default function CalibrationPage() {
       });
       
       completeStep('calibration');
-      router.push('/prefeel');
+      router.push('/freq/discovery');
     }
   };
 

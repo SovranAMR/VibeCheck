@@ -188,7 +188,16 @@ export default function TonePage() {
       const toneData: ToneData = {
         vec: [0, 0, 0],
         strength: 0,
-        rtAvg: TIME_LIMIT
+        rtAvg: TIME_LIMIT,
+        arousal: 0,
+        novelty: 0,
+        sensory: 0,
+        decisiveness: 0,
+        impulsivity: 0,
+        biasWarmCold: 0,
+        biasSharpSmooth: 0,
+        entropy: 1,
+        timeoutRate: 1
       };
       setResults(toneData);
       setToneData(toneData);
@@ -226,13 +235,46 @@ export default function TonePage() {
     const strength = Math.round(
       Math.max(0, Math.min(100, 50 + 35 * normalizedMagnitude + 25 * speed01))
     );
+
+    // Psychometric derivatives
+    const total = allChoices.length;
+    const timeouts = allChoices.filter(c => c.choice === 'timeout').length;
+    const timeoutRate = total > 0 ? timeouts / total : 0;
+
+    // Left/right entropy as decisiveness proxy
+    const leftCount = validChoices.filter(c => c.choice === 'left').length;
+    const rightCount = validChoices.filter(c => c.choice === 'right').length;
+    const pLeft = validChoices.length > 0 ? leftCount / validChoices.length : 0.5;
+    const pRight = 1 - pLeft;
+    const H = -(pLeft > 0 ? pLeft * Math.log2(pLeft) : 0) - (pRight > 0 ? pRight * Math.log2(pRight) : 0); // 0..1 (since 2 classes)
+    const entropy = H; // 0..1
+
+    // Biases from average vector components
+    const biasWarmCold = Math.max(-1, Math.min(1, avgVector[0]));
+    const biasSharpSmooth = Math.max(-1, Math.min(1, avgVector[2]));
+
+    // Sub-scores 0..100 (heuristic mappings)
+    const arousal = Math.round(50 + 35 * Math.abs(avgVector[0]) + 15 * speed01);
+    const novelty = Math.round(50 + 30 * Math.abs(avgVector[1]) + 20 * normalizedMagnitude);
+    const sensory = Math.round(50 + 40 * Math.abs(avgVector[2]));
+    const decisiveness = Math.round(100 * (1 - entropy) * (1 - timeoutRate));
+    const impulsivity = Math.round(100 * speed01);
     
     const toneData: ToneData = {
       vec: avgVector,
       strength: Math.round(strength),
       rtAvg: Math.round(
         validChoices.reduce((sum, c) => sum + c.reactionTime, 0) / validChoices.length
-      )
+      ),
+      arousal: Math.max(0, Math.min(100, arousal)),
+      novelty: Math.max(0, Math.min(100, novelty)),
+      sensory: Math.max(0, Math.min(100, sensory)),
+      decisiveness: Math.max(0, Math.min(100, decisiveness)),
+      impulsivity: Math.max(0, Math.min(100, impulsivity)),
+      biasWarmCold,
+      biasSharpSmooth,
+      entropy,
+      timeoutRate
     };
     
     setResults(toneData);
@@ -260,7 +302,7 @@ export default function TonePage() {
 
   const handleComplete = () => {
     completeStep('tone');
-    router.push('/breath');
+    router.push('/results');
   };
 
   const getVectorDescription = (vec: [number, number, number]) => {
@@ -413,7 +455,7 @@ export default function TonePage() {
                 onClick={handleComplete}
                 className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105"
               >
-                Nefes Testine Geç →
+                Sonuçlara Geç →
               </button>
             </div>
           </div>

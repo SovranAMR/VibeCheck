@@ -23,7 +23,7 @@ export function calculateFQI(session: Partial<Session>): { scores: Scores; aura:
   const z_breath = (Breath - 50) / sigma;
 
   // Ağırlıklı Z-skor
-  const FQI_z = 0.40 * z_freq + 0.15 * z_chrono + 0.10 * z_stability + 0.15 * z_tone + 0.20 * z_breath;
+  const FQI_z = 0.45 * z_freq + 0.15 * z_chrono + 0.10 * z_stability + 0.30 * z_tone + 0.00 * z_breath;
 
   // FQI skoruna çevir (40-170 aralığı)
   let FQI = Math.round(Math.max(40, Math.min(170, 100 + 15 * FQI_z)));
@@ -213,8 +213,8 @@ function calculateFrequencyScore(session: Partial<Session>): number {
   const breathScore = Math.max(0, Math.min(100, breathAlignment));
 
   // Ağırlıklı toplam
-  // Breath anahtarı entegrasyonu: 0.30 seçicilik, 0.30 koherans, 0.20 valence, 0.20 nefes uyumu
-  const F_freq = 0.30 * selectivityScore + 0.30 * coherenceScore + 0.20 * valenceScore + 0.20 * breathScore;
+  // Breath entegrasyonu geçici olarak devre dışı: 0.35 seçicilik, 0.35 koherans, 0.30 valence, 0.00 nefes
+  const F_freq = 0.35 * selectivityScore + 0.35 * coherenceScore + 0.30 * valenceScore + 0.00 * breathScore;
 
   return F_freq;
 }
@@ -360,7 +360,8 @@ function checkLegendaryGate(
   const coherence = calculateCoherence(session.prefeel || [], session.fixed || []);
   
   if (selectivity < 85 || coherence < 85) return false;
-  if (Breath < 85 || Chrono < 90 || Stability < 85) return false;
+  if (Chrono < 90 || Stability < 85) return false;
+  // Breath eşiği geçici olarak kaldırıldı
 
   // Negatif valence kontrolü
   const negativeRatio = calculateNegativeRatio(session.fixed || []);
@@ -582,4 +583,67 @@ export function buildAuraNarrative(aura: AuraInfo, session: Partial<Session>): s
   const cvDesc = b.cv < 0.12 ? 'tutarlılığı yüksek' : b.cv > 0.25 ? 'değişken ve yaratıcı' : 'esnek';
 
   return `${type} doğası ${toneWord[type]}; ${bpmDesc} ritim ve ${ratioDesc}, ${cvDesc} bir nefesle birleşiyor.`;
+}
+
+export function calculateAuraFQICohesion(
+  session: Partial<Session>,
+  scores?: Scores,
+  aura?: AuraInfo
+): number {
+  const { scores: s, aura: a } = scores && aura ? { scores, aura } : calculateFQI(session);
+
+  // Tone vektörü ile (valence + beden dağılımı) temelli hedef vektörün benzerliği
+  // Hedef vektör: [energy_like, saturation_balance, texture_preference]
+  // Yaklaşım: valence (+) → enerji/sıcaklık, üst beden ağırlığı → keskin/doku, genel denge → doygunluk
+  const fixed = session.fixed || [];
+
+  // Valence oranı (−1..+1)
+  const positiveFeel = ['bliss', 'joy', 'peace', 'love', 'energy', 'clarity', 'warmth', 'expansion'];
+  const negativeFeel = ['tension', 'anxiety', 'sadness', 'anger', 'confusion', 'heaviness', 'restless', 'empty'];
+  let pos = 0, neg = 0;
+  for (const f of fixed) {
+    if (positiveFeel.includes(f.valence)) pos++; else if (negativeFeel.includes(f.valence)) neg++;
+  }
+  const tot = pos + neg;
+  const valence01 = tot > 0 ? (pos - neg) / tot : 0; // −1..+1
+
+  // Body dağılımı
+  const upperBodies = ['crown', 'forehead', 'eyes', 'ears', 'throat'];
+  const middleBodies = ['heart', 'chest', 'solar_plexus', 'arms', 'hands'];
+  const lowerBodies = ['belly', 'sacral', 'legs', 'feet', 'spine'];
+  let upper=0, middle=0, lower=0;
+  for (const it of fixed) {
+    for (const locus of it.locus) {
+      if (upperBodies.includes(locus)) upper++; else if (middleBodies.includes(locus)) middle++; else if (lowerBodies.includes(locus)) lower++;
+    }
+  }
+  const sumB = Math.max(1, upper + middle + lower);
+  const upperRatio = upper / sumB; // 0..1
+  const lowerRatio = lower / sumB; // 0..1
+
+  // Hedef vektör (heuristic):
+  const target: [number, number, number] = [
+    valence01,                       // energy/sıcaklık ekseni
+    2 * Math.abs(valence01) - 1,    // doygunluk/kontrast tahmini (yüksek duygulanım → daha doygun)
+    (upperRatio - lowerRatio)       // doku: üst bölgeler arttıkça "keskin" eğilim
+  ];
+
+  // Normalize
+  const magT = Math.sqrt(target[0]**2 + target[1]**2 + target[2]**2) || 1;
+  const tN: [number, number, number] = [target[0]/magT, target[1]/magT, target[2]/magT];
+
+  // Tone vector
+  const tone = session.tone?.vec || [0,0,0];
+  const magV = Math.sqrt(tone[0]**2 + tone[1]**2 + tone[2]**2) || 1;
+  const vN: [number, number, number] = [tone[0]/magV, tone[1]/magV, tone[2]/magV];
+
+  // Kosinüs benzerliği → 0..100
+  const cos = Math.max(-1, Math.min(1, tN[0]*vN[0] + tN[1]*vN[1] + tN[2]*vN[2]));
+  const similarity = Math.round(((cos + 1) / 2) * 100);
+
+  // FQI tutarlılığı ile harmanla: F_freq ve Tone skorları yakınsa bonus
+  const near = 100 - Math.min(100, Math.abs((s.F_freq || 0) - (s.Tone || 0)));
+  const cohesion = Math.round(0.7 * similarity + 0.3 * near);
+
+  return Math.max(0, Math.min(100, cohesion));
 }

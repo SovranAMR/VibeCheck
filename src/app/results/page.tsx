@@ -5,6 +5,8 @@ import * as htmlToImage from 'html-to-image';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/stores/sessionStore';
 import { calculateFQI, AURA_DESCRIPTIONS, buildAuraNarrative, computeAuraIndex, buildRegionInsights } from '@/lib/scoring';
+import { calculateAuraFQICohesion } from '@/lib/scoring';
+import { t } from '@/lib/i18n';
 import { Scores, AuraInfo } from '@/types';
 import emailjs from '@emailjs/browser';
 
@@ -79,6 +81,20 @@ const getAdvancedBreathAnalysis = (data: any) => {
 };
 
 export default function ResultsPage() {
+  // Client-side locale from cookie (set by middleware)
+  const [locale, setLocale] = useState<'tr' | 'en'>('tr');
+  useEffect(() => {
+    try {
+      const m = document.cookie.match(/(?:^|; )LOCALE=([^;]+)/);
+      const c = m ? decodeURIComponent(m[1]) : '';
+      if (c === 'en' || c === 'tr') {
+        setLocale(c);
+      } else {
+        const nav = (navigator?.language || 'tr').toLowerCase().split('-')[0];
+        setLocale(nav === 'en' ? 'en' : 'tr');
+      }
+    } catch {}
+  }, []);
   const router = useRouter();
   const { session, setScores, setAura, setCurrentStep } = useSessionStore();
   
@@ -88,6 +104,7 @@ export default function ResultsPage() {
   } | null>(null);
   const [auraIndex, setAuraIndex] = useState<number | null>(null);
   const [regionInsights, setRegionInsights] = useState<string[]>([]);
+  const [cohesion, setCohesion] = useState<number | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [userEmail, setUserEmail] = useState('');
@@ -110,6 +127,7 @@ export default function ResultsPage() {
       const idx = computeAuraIndex(session, calculatedResults.scores, calculatedResults.aura);
       setAuraIndex(idx);
       setRegionInsights(buildRegionInsights(session));
+      try { setCohesion(calculateAuraFQICohesion(session, calculatedResults.scores, calculatedResults.aura)); } catch {}
     }
   }, [session, results, setScores, setAura, setCurrentStep]);
 
@@ -283,10 +301,10 @@ export default function ResultsPage() {
         {/* Header */}
         <div className="text-center space-y-4 pt-8">
           <h1 className="text-4xl md:text-5xl font-light text-white">
-            Frekans Profilin
+            {t(locale, 'results_title')}
           </h1>
           <p className="text-slate-300">
-            Kişisel frekans analizin tamamlandı
+            {t(locale, 'results_sub')}
           </p>
         </div>
 
@@ -297,7 +315,7 @@ export default function ResultsPage() {
               {scores.FQI}
             </div>
             <div className="text-xl text-slate-300">
-              FQI (Frequency Quality Index)
+              {t(locale, 'fqi_label')}
             </div>
             <div className="text-lg text-purple-300">
               {getFQIDescription(scores.FQI)}
@@ -313,7 +331,7 @@ export default function ResultsPage() {
         <div className="bg-slate-800/50 rounded-2xl p-8 text-center space-y-4">
           <div className="space-y-2">
             <div className="text-3xl font-light text-white">
-              {aura.type} Tipi
+              {t(locale, 'aura_type')}: {aura.type}
             </div>
             <div className="text-slate-300 max-w-md mx-auto">
               {AURA_DESCRIPTIONS[aura.type]}
@@ -328,8 +346,18 @@ export default function ResultsPage() {
           {/* Aura Index */}
           {auraIndex !== null && (
             <div className="pt-4">
-              <div className="text-sm text-slate-400">Aura İndeksi (−100,000,000 … +100,000,000,000)</div>
+              <div className="text-sm text-slate-400">{t(locale, 'aura_index')} (−100,000,000 … +100,000,000,000)</div>
               <div className="text-2xl font-semibold text-purple-300">{auraIndex.toLocaleString('tr-TR')}</div>
+            </div>
+          )}
+
+          {cohesion !== null && (
+            <div className="pt-2">
+              <div className="text-sm text-slate-400">FQI ↔ Aura Bütünlüğü</div>
+              <div className="text-xl font-semibold text-emerald-300">{cohesion}/100</div>
+              <div className="text-xs text-slate-500 max-w-xl mx-auto">
+                Frekans uyumu (F_freq), Tone vektörü ve beden/duygu dağılımının birbirini ne kadar desteklediğini gösterir. Yüksek değer, profilin bütünlüklü olduğunu ifade eder.
+              </div>
             </div>
           )}
 
@@ -552,6 +580,92 @@ export default function ResultsPage() {
             })()}
           </div>
         )}
+
+        {/* Tone Psychometric Insights */}
+        {session?.tone && (
+          <div className="bg-slate-800/50 rounded-2xl p-8 space-y-6">
+            <h2 className="text-2xl font-light text-white text-center">Ses Tercihi Psikometrisi</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-slate-300">Arousal</div>
+                    <div className="text-xs text-slate-400">Enerji ekseni + hızlı tepki (uyanıklık/atılım)</div>
+                  </div>
+                  <div className="text-yellow-400 font-bold">{Math.round(session.tone.arousal || 0)}/100</div>
+                </div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-slate-300">Novelty</div>
+                    <div className="text-xs text-slate-400">Doygunluk/kontrast ve kararlılık (yenilik arayışı)</div>
+                  </div>
+                  <div className="text-green-400 font-bold">{Math.round(session.tone.novelty || 0)}/100</div>
+                </div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-slate-300">Sensory</div>
+                    <div className="text-xs text-slate-400">Doku duyarlılığı (keskin ↔ yumuşak)</div>
+                  </div>
+                  <div className="text-blue-400 font-bold">{Math.round(session.tone.sensory || 0)}/100</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-slate-300">Decisiveness</div>
+                    <div className="text-xs text-slate-400">Düşük entropi + düşük zaman aşımı (karar netliği)</div>
+                  </div>
+                  <div className="text-purple-400 font-bold">{Math.round(session.tone.decisiveness || 0)}/100</div>
+                </div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-slate-300">Impulsivity</div>
+                    <div className="text-xs text-slate-400">Hızlı tepki eğilimi (hazırcevaplık)</div>
+                  </div>
+                  <div className="text-pink-400 font-bold">{Math.round(session.tone.impulsivity || 0)}/100</div>
+                </div>
+                <div className="text-xs text-slate-400 space-y-1">
+                  <div>Bias (Sıcak↔Soğuk): <span className="text-slate-300">{(session.tone.biasWarmCold ?? 0) > 0 ? 'Sıcak eğilim' : (session.tone.biasWarmCold ?? 0) < 0 ? 'Soğuk eğilim' : 'Nötr'}</span></div>
+                  <div>Bias (Keskin↔Yumuşak): <span className="text-slate-300">{(session.tone.biasSharpSmooth ?? 0) > 0 ? 'Keskin eğilim' : (session.tone.biasSharpSmooth ?? 0) < 0 ? 'Yumuşak eğilim' : 'Nötr'}</span></div>
+                  <div>Seçim Entropisi: <span className="text-slate-300">{((session.tone.entropy ?? 0) * 100).toFixed(0)}%</span> • Timeout Oranı: <span className="text-slate-300">{((session.tone.timeoutRate ?? 0) * 100).toFixed(0)}%</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500 text-center">
+              Açıklamalar psikometri literatüründeki arousal/novelty/sensory karar eksenlerine dayalıdır; tepki süresi ve seçim çeşitliliği ile dengelenir.
+            </div>
+          </div>
+        )}
+
+        {/* Data Pipeline Summary */}
+        <div className="bg-slate-800/50 rounded-2xl p-8 space-y-4">
+          <h2 className="text-2xl font-light text-white text-center">Veri ve Skorlama Özeti</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <div className="text-slate-300 font-medium">Kaynaklar</div>
+              <ul className="list-disc list-inside text-slate-400 space-y-1">
+                <li>Calibration: 432 Hz deneyimi + beden bölgeleri</li>
+                <li>Frequency Discovery: 8 sabit + serbest seçim, duygu ve beden</li>
+                <li>Chrono: 3 deneme süre tahmini (MAPE)</li>
+                <li>Stability: mikro-hareket stabilitesi</li>
+                <li>Tone: 8 çift sezgisel seçim, reaksiyon süresi</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <div className="text-slate-300 font-medium">Derleme ve Sunum</div>
+              <ul className="list-disc list-inside text-slate-400 space-y-1">
+                <li>F_freq (45%): seçicilik + koherans + valence</li>
+                <li>Tone (30%): tercih gücü + psikometrik alt‑metrikler</li>
+                <li>Chrono (15%) ve Stability (10%): doğrudan skorlar</li>
+                <li>Aura: ton vektörü + beden/valence dağılımı benzerliği</li>
+                <li>Aura Index: FQI temeli + valence/beden/serbest seçim etkileri</li>
+              </ul>
+            </div>
+          </div>
+          <div className="text-xs text-slate-500 text-center">
+            Nefes modülü geçici olarak devre dışıdır; ağırlıklar buna göre güncellenmiştir.
+          </div>
+        </div>
 
         {/* CTA Buttons */}
         <div className="space-y-4">

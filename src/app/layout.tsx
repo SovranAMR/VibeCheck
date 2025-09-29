@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AnalyticsProvider from '@/components/AnalyticsProvider';
 import IOSAudioUnlock from '@/components/IOSAudioUnlock';
+// Locale switch removed for auto locale
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

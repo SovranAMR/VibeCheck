@@ -48,6 +48,7 @@ export default function FrequencyDiscoveryPage() {
     like: 50, // Default slider value
     locus: []
   });
+  const [selectedFeels, setSelectedFeels] = useState<FeelType[]>([]);
   const [showQuestions, setShowQuestions] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -95,7 +96,13 @@ export default function FrequencyDiscoveryPage() {
   };
 
   const handleValenceSelect = (valence: FeelType) => {
-    setCurrentData(prev => ({ ...prev, valence }));
+    setSelectedFeels(prev => {
+      const exists = prev.includes(valence);
+      const next = exists ? prev.filter(v => v !== valence) : [...prev, valence];
+      // Primary value for saving can be the most recent toggle or first selection
+      setCurrentData(cd => ({ ...cd, valence: next.length ? (exists ? (next[next.length - 1] ?? null) : valence) : null }));
+      return next;
+    });
   };
 
   const handleLikeChange = (like: number) => {
@@ -112,16 +119,15 @@ export default function FrequencyDiscoveryPage() {
   };
 
   const handleNext = () => {
-    if (currentData.valence && currentData.locus.length > 0) {
-      // Stop continuous play if running
+    if (selectedFeels.length > 0 && currentData.locus.length > 0) {
+      // Stop continuous play if running (keep playing during selection only)
       if (isFreepickPlaying) {
         stopContinuousPlay();
       }
-      
       // Kaydet
       const fixedFreqData: FixedFreqItem = {
         f: FREQUENCY_QUESTIONS[currentIndex].f,
-        valence: currentData.valence,
+        valence: currentData.valence!,
         like: currentData.like,
         locus: currentData.locus
       };
@@ -132,6 +138,8 @@ export default function FrequencyDiscoveryPage() {
       if (newIndex < FREQUENCY_QUESTIONS.length) {
         setCurrentIndex(newIndex);
         setShowQuestions(false);
+        setSelectedFeels([]);
+        setCurrentData({ valence: null, like: 50, locus: [] });
         handlePlayFrequency(); // Automatically play next frequency
       } else {
         completeStep('freq-main');
@@ -143,13 +151,12 @@ export default function FrequencyDiscoveryPage() {
 
   const handleBack = () => {
     if (currentIndex > 0) {
-      // Stop continuous play if running
       if (isFreepickPlaying) {
         stopContinuousPlay();
       }
-      
       setCurrentIndex(prev => prev - 1);
       setCurrentData({ valence: null, like: 50, locus: [] });
+      setSelectedFeels([]);
       setShowQuestions(false);
     }
   };
@@ -322,22 +329,13 @@ export default function FrequencyDiscoveryPage() {
 
   const handleSelectFrequency = () => {
     const listeningTime = listeningStartTime ? Date.now() - listeningStartTime : 0;
-    
-    // Minimum 3 seconds listening time
     if (listeningTime < 3000) {
       alert('Biraz daha dinle. En az 3 saniye dinlemeden seçim yapamazsın.');
       return;
     }
-    
-    stopContinuousPlay();
-    
-    const freepickData: FreePick = {
-        f: currentFreq,
-    };
-    
-    setFreepickData(freepickData);
-    completeStep('freq-freepick');
-    router.push('/chrono');
+    // Sesi kesmeden seçimi onayla ve soruları göster
+    setSelectedFreq(currentFreq);
+    setHasSelectedFreq(true);
   };
 
   const handleFeelSelectFreepick = (feel: FeelType) => {
@@ -536,12 +534,12 @@ export default function FrequencyDiscoveryPage() {
           <div className="space-y-6">
                       {/* Question 1: Valence */}
             <div className="space-y-4">
-              <h3 className="text-lg text-white">Bu frekans seni nasıl etkiledi?</h3>
+              <h3 className="text-lg text-white">Bu frekans seni nasıl etkiledi? <span className="text-xs text-slate-400">(Birden fazla seçebilirsin)</span></h3>
               <div className="space-y-2">
                 <h4 className="text-xs text-green-400 font-medium uppercase tracking-wide">🌟 Güçlü Hisler</h4>
                 <div className="grid grid-cols-4 gap-2">
                   {feelOptions.filter(opt => opt.intensity === 'high' && !['tension'].includes(opt.value)).map((option) => (
-                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${currentData.valence === option.value ? 'border-red-500 bg-red-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-red-400 hover:bg-red-400/10'}`}>
+                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${selectedFeels.includes(option.value) ? 'border-red-500 bg-red-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-red-400 hover:bg-red-400/10'}`}>
                                 <div className="text-base mb-1">{option.emoji}</div><div className="font-medium leading-tight">{option.label}</div>
                     </button>
                   ))}
@@ -551,7 +549,7 @@ export default function FrequencyDiscoveryPage() {
                 <h4 className="text-xs text-blue-400 font-medium uppercase tracking-wide">⚖️ Orta Hisler</h4>
                 <div className="grid grid-cols-4 gap-2">
                   {feelOptions.filter(opt => opt.intensity === 'medium').map((option) => (
-                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${currentData.valence === option.value ? 'border-blue-500 bg-blue-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-blue-400 hover:bg-blue-400/10'}`}>
+                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${selectedFeels.includes(option.value) ? 'border-blue-500 bg-blue-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-blue-400 hover:bg-blue-400/10'}`}>
                                 <div className="text-base mb-1">{option.emoji}</div><div className="font-medium leading-tight">{option.label}</div>
                     </button>
                   ))}
@@ -561,7 +559,7 @@ export default function FrequencyDiscoveryPage() {
                 <h4 className="text-xs text-orange-400 font-medium uppercase tracking-wide">⚠️ Zor Hisler</h4>
                 <div className="grid grid-cols-4 gap-2">
                   {feelOptions.filter(opt => opt.intensity === 'low' || ['tension', 'confusion', 'heaviness', 'restless'].includes(opt.value)).map((option) => (
-                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${currentData.valence === option.value ? 'border-gray-500 bg-gray-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-gray-400 hover:bg-gray-400/10'}`}>
+                              <button key={option.value} onClick={() => handleValenceSelect(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${selectedFeels.includes(option.value) ? 'border-gray-500 bg-gray-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-gray-400 hover:bg-gray-400/10'}`}>
                                 <div className="text-base mb-1">{option.emoji}</div><div className="font-medium leading-tight">{option.label}</div>
                     </button>
                   ))}
@@ -570,7 +568,7 @@ export default function FrequencyDiscoveryPage() {
             </div>
 
             {/* Question 2: Like Scale */}
-            {currentData.valence && (
+            {selectedFeels.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-lg text-white">Hoşlanma derecen? (1-100)</h3>
                 <div className="px-6">
@@ -583,7 +581,7 @@ export default function FrequencyDiscoveryPage() {
             )}
 
                       {/* Question 3: Body Locus */}
-            {currentData.valence && (
+            {selectedFeels.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-lg text-white">Nerede hissettin? <span className="text-sm text-slate-400">(Birden fazla seçebilirsin)</span></h3>
                 <div className="space-y-2">
@@ -630,7 +628,7 @@ export default function FrequencyDiscoveryPage() {
             )}
 
             {/* Navigation Buttons */}
-                      {currentData.valence && currentData.locus.length > 0 && (
+                      {selectedFeels.length > 0 && currentData.locus.length > 0 && (
               <div className="flex justify-center space-x-4 pt-4">
                           {currentIndex > 0 && (
                             <button onClick={handleBack} className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-full text-sm font-medium transition-all duration-300">
@@ -702,43 +700,61 @@ export default function FrequencyDiscoveryPage() {
                     <div className="text-purple-400 text-lg">
                       🎵 Kaydırarak sana en uygun frekansı bul
                     </div>
-                    
                     <div className="flex justify-center space-x-4">
                       <button
                         onClick={handleSelectFrequency}
                         className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105"
                       >
-                        Bu Frekansı Seç ve Devam Et →
+                        Bu Frekansı Seç →
                       </button>
-                
-                <button
+                      <button
                         onClick={stopContinuousPlay}
                         className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-300"
-                >
+                      >
                         Durdur
-                </button>
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Listening Time Indicator */}
-              {listeningStartTime && (
-                <div className="text-xs text-slate-500">
-                  Dinleme süresi: {Math.max(0, Math.round((Date.now() - listeningStartTime) / 1000))}s
-                  {(Date.now() - listeningStartTime) < 3000 && ' (min 3s gerekli)'}
-          </div>
-        )}
+              {/* After Selection: Questions while audio keeps playing */}
+              {hasSelectedFreq && isFreepickPlaying && (
+                <div className="space-y-8 pt-2">
+                  <div className="text-sm text-slate-400">Seçilen: <span className="text-purple-300 font-medium">{selectedFreq} Hz</span></div>
+                  <div className="space-y-6">
+                    <h3 className="text-lg text-white">Ne hissettin? <span className="text-xs text-slate-400">(Birden fazla seçebilirsin)</span></h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {feelOptions.map((option) => (
+                        <button key={option.value} onClick={() => handleFeelSelectFreepick(option.value)} className={`p-2 rounded-lg transition-all duration-300 border-2 text-xs ${experienceData.feel === option.value ? 'border-green-500 bg-green-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-green-400 hover:bg-green-400/10'}`}>
+                          <div className="text-base mb-1">{option.emoji}</div><div className="font-medium leading-tight">{option.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Frequency Range Indicators */}
-        <div className="pt-6">
-                <div className="flex justify-between text-xs text-slate-600">
-                  <div>40-100Hz<br/>Derin Bass</div>
-                  <div>100-500Hz<br/>Temel</div>
-                  <div>500-2kHz<br/>Orta</div>
-                  <div>2k-8kHz<br/>Tiz</div>
+                  {experienceData.feel && (
+                    <div className="space-y-6">
+                      <h3 className="text-lg text-white">Nerede hissettin? <span className="text-xs text-slate-400">(Birden fazla seçebilirsin)</span></h3>
+                      <div className="grid grid-cols-5 gap-2">
+                        {bodyOptions.map((option) => (
+                          <button key={option.value} onClick={() => handleBodySelectFreepick(option.value)} className={`p-3 rounded-lg transition-all duration-300 border-2 text-sm ${experienceData.body.includes(option.value) ? 'border-purple-500 bg-purple-500/20 text-white scale-105' : 'border-slate-600 bg-slate-800/50 text-slate-300 hover:border-purple-400 hover:bg-purple-400/10'}`}>
+                            <div className="text-lg mb-1">{option.emoji}</div><div className="font-medium leading-tight">{option.label}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {experienceData.feel && experienceData.body.length > 0 && (
+                    <div className="pt-2">
+                      <button onClick={handleCompleteFreepick} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full text-lg font-medium transition-all duration-300 hover:scale-105">
+                        Devam Et →
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

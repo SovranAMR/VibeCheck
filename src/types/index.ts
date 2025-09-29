@@ -59,6 +59,17 @@ export interface ToneData {
   vec: [number, number, number]; // Enerji, Doygunluk, Doku
   strength: number; // 0-100
   rtAvg: number; // ortalama reaksiyon süresi
+  // Bilimsel türev metrikler (0-100)
+  arousal?: number;        // enerji ekseni + hız
+  novelty?: number;        // doygunluk/kontrast + kararlılık
+  sensory?: number;        // doku (keskin-yumuşak) duyarlılığı
+  decisiveness?: number;   // düşük entropi + düşük timeout
+  impulsivity?: number;    // hızlı RT eğilimi (yüksek hızlı)
+  // Bias ve kalite metrikleri
+  biasWarmCold?: number;   // -1 (Soğuk) .. +1 (Sıcak)
+  biasSharpSmooth?: number;// -1 (Akışkan/Yumuşak) .. +1 (Keskin)
+  entropy?: number;        // 0..1 (seçim çeşitliliği)
+  timeoutRate?: number;    // 0..1
 }
 
 // Nefes koheransı
